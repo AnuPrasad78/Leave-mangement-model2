@@ -30,7 +30,7 @@ const USERS = [
 ]
 
 for (const u of USERS) {
-  const { data, error } = await admin.auth.createUser({
+  const { data, error } = await admin.auth.admin.createUser({
     email: u.email,
     password: PASSWORD,
     email_confirm: true,

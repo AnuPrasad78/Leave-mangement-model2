@@ -122,6 +122,11 @@ language sql stable security definer set search_path = public as $$
   select e.system_role from public.employees e where e.auth_user_id = auth.uid()
 $$;
 
+create function public.auth_manager_id() returns uuid
+language sql stable security definer set search_path = public as $$
+  select manager_id from public.employees where auth_user_id = auth.uid()
+$$;
+
 -- Which balance pool a leave type draws from: 'annual', 'contingency', or null (no deduction).
 create function public.leave_deduction_pool(p_type_name text) returns text
 language sql immutable as $$
@@ -320,11 +325,14 @@ alter table public.optional_holiday_picks enable row level security;
 alter table public.separation_requests   enable row level security;
 
 -- employees
+-- Never select from a table inside its own RLS policy (postgres aborts
+-- with 42P17 infinite recursion). All clauses below read only the candidate
+-- row's columns plus SECURITY DEFINER helpers.
 create policy employees_select on public.employees for select to authenticated
   using (
     auth_user_id = auth.uid()
-    or id in (select id from public.employees where manager_id = public.auth_employee_id())
-    or id in (select manager_id from public.employees where auth_user_id = auth.uid())
+    or manager_id = public.auth_employee_id()
+    or id = public.auth_manager_id()
     or public.auth_system_role() = 'admin'
   );
 create policy employees_update_self on public.employees for update to authenticated

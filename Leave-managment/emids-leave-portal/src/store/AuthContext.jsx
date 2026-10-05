@@ -105,6 +105,15 @@ export function AuthProvider({ children }) {
     setBalances(toBalances(data?.[0]))
   }, [])
 
+  const loadLeaveTypes = useCallback(async () => {
+    const { data } = await supabase
+      .from('leave_types')
+      .select('name')
+      .eq('is_active', true)
+      .order('id')
+    setLeaveTypes((data ?? []).map((r) => r.name))
+  }, [])
+
   const handleSession = useCallback(async (session) => {
     const user = session?.user
     if (!user) {
@@ -120,7 +129,7 @@ export function AuthProvider({ children }) {
       meRef.current = { uid: user.id }
       const { data: p } = await supabase
         .from('employees')
-        .select('*, manager:employees!employees_manager_id_fkey ( full_name )')
+        .select('*, manager:employees ( full_name )')
         .eq('auth_user_id', user.id)
         .single()
       meRef.current.id = p?.id ?? null
@@ -129,10 +138,11 @@ export function AuthProvider({ children }) {
         loadMine(p?.id),
         loadTeam(p?.id),
         loadBalances(p?.id),
+        loadLeaveTypes(),
       ])
     }
     setSignedIn(true)
-  }, [loadMine, loadTeam, loadBalances])
+  }, [loadMine, loadTeam, loadBalances, loadLeaveTypes])
 
   useEffect(() => {
     let mounted = true
