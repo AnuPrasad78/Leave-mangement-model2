@@ -1,0 +1,175 @@
+/* ---- App shell: thin teal gradient bar, white header, canvas body ---- */
+.shell { min-height: 100vh; display: flex; flex-direction: column; }
+
+.topbar { height: 4px; background: var(--grad); flex: none; }
+
+.header {
+  height: 60px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--hairline-2);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  position: relative;
+  transition: background 0ms;
+}
+.icon-btn:hover { background: var(--teal-wash); color: var(--teal-deep); }
+.icon-btn__dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  background: var(--red);
+  border: 1.5px solid var(--surface);
+}
+
+.header__logo { display: inline-flex; align-items: center; }
+.header__logo img { height: 17px; display: block; }
+
+.header__title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--black);
+  white-space: nowrap;
+}
+.header__title::after {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 3px;
+  background: var(--grad);
+  margin: 3px auto 0;
+}
+
+.header__right { margin-left: auto; display: flex; gap: 2px; }
+
+/* ---- sidebar drawer ---- */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(14, 14, 14, 0.35);
+  z-index: 45;
+  animation: fade-in 160ms linear;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 288px;
+  background: var(--surface);
+  border-right: 1px solid var(--hairline-2);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  animation: drawer-in 240ms var(--ease-resolve);
+}
+@keyframes drawer-in { from { transform: translateX(-100%); } }
+
+.drawer__topbar { height: 4px; background: var(--grad); flex: none; }
+
+.drawer__profile {
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid var(--hairline-2);
+  display: flex;
+  gap: 13px;
+  align-items: center;
+}
+
+.avatar {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  background: var(--teal);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 0 0 0 8px;
+}
+
+.drawer__name { font-size: 14px; font-weight: 700; color: var(--black); line-height: 1.25; }
+.drawer__role { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--teal-deep); margin-top: 3px; }
+.drawer__close { margin-left: auto; }
+
+.drawer__nav { padding: 14px 10px; flex: 1; overflow-y: auto; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 11px 13px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
+  text-decoration: none;
+  transition: background 0ms, color 0ms;
+}
+.nav-item:hover { background: var(--teal-wash); color: var(--teal-deep); }
+.nav-item.is-active {
+  background: var(--teal-wash);
+  color: var(--teal-deep);
+  border-left-color: var(--teal);
+}
+.nav-item .mono { font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; }
+
+.drawer__foot { padding: 16px 22px 20px; border-top: 1px solid var(--hairline-2); }
+
+.drawer__date {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-bottom: 14px;
+}
+.drawer__date b { color: var(--teal-deep); font-weight: 600; }
+
+.btn--logout {
+  width: 100%;
+  color: var(--red-deep);
+  border-color: var(--hairline);
+}
+.btn--logout:hover:not(:disabled) { background: var(--red-wash); border-color: var(--red); }
+
+/* ---- content ---- */
+.content { flex: 1; }
+
+@media (max-width: 860px) {
+  .header__title { display: none; }
+  .page { padding: 20px 16px 40px; }
+}

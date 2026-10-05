@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"C:\\\\Users\\\\vootkurir\\\\Downloads\\\\zzz\" 2>/dev/null; echo \"---src---\"; ls -R \"C:\\\\Users\\\\vootkurir\\\\Downloads\\\\yyy\\\\emids-leave-portal\\\\src\" 2>/dev/null | head -50; echo \"---public---\"; ls \"C:\\\\Users\\\\vootkurir\\\\Downloads\\\\yyy\\\\emids-leave-portal\\\\public\" 2>/dev/null)",
+      "Bash(ls \"C:\\\\Users\\\\vootkurir\\\\Downloads\" | head -40; echo \"---images---\"; ls \"C:\\\\Users\\\\vootkurir\\\\Downloads\"/*.png \"C:\\\\Users\\\\vootkurir\\\\Downloads\"/*.jpg \"C:\\\\Users\\\\vootkurir\\\\Downloads\"/*.jpeg 2>/dev/null; echo \"---yyy-subdirs---\"; find \"C:\\\\Users\\\\vootkurir\\\\Downloads\\\\yyy\" -maxdepth 2 -type f \\\\\\( -name \"*.png\" -o -name \"*.jpg\" -o -name \"*.jpeg\" -o -name \"*.csv\" -o -name \"*.xlsx\" \\\\\\) 2>/dev/null | head)",
+      "Bash(python -c ' *)",
+      "Bash(npm -v)",
+      "Bash(npm install *)",
+      "Bash(mkdir -p \"C:/Users/vootkurir/Downloads/zzz/emids-leave-portal/src/assets\" \"C:/Users/vootkurir/Downloads/zzz/emids-leave-portal/src/components\" \"C:/Users/vootkurir/Downloads/zzz/emids-leave-portal/src/pages\" \"C:/Users/vootkurir/Downloads/zzz/emids-leave-portal/src/styles\" \"C:/Users/vootkurir/Downloads/zzz/emids-leave-portal/src/store\" \"C:/Users/vootkurir/Downloads/zzz/emids-leave-portal/public\" && cp \"C:/Users/vootkurir/Downloads/yyy/emids-leave-portal/src/assets/emids-logo-light.svg\" \"C:/Users/vootkurir/Downloads/yyy/emids-leave-portal/src/assets/emids-logo.svg\" \"C:/Users/vootkurir/Downloads/zzz/emids-leave-portal/src/assets\" && ls \"C:/Users/vootkurir/Downloads/zzz/emids-leave-portal/src/assets\")",
+      "Bash(npm run *)"
+    ]
+  }
+}
