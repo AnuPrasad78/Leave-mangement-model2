@@ -24,22 +24,10 @@ const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
-const DEFAULTS = [
+const USERS = [
   { email: 'sai.nithinreddy@emids.com', full_name: 'Vootkuri Sai Nithin Reddy' },
   { email: 'sandeep.venkateshkamath@emids.com', full_name: 'Sandeep Venkatesh Kamath' },
 ]
-
-// --email <address> (repeatable) to provision custom accounts; defaults to the two demo users.
-const argv = process.argv.slice(2)
-const cliEmails = []
-for (let i = 0; i < argv.length; i++) {
-  if (argv[i] === '--email') {
-    const v = argv[++i]?.trim().toLowerCase()
-    if (!v || !v.includes('@')) { console.error(`Bad --email value: ${v}`); process.exit(1) }
-    cliEmails.push({ email: v })
-  }
-}
-const USERS = cliEmails.length ? cliEmails : DEFAULTS
 
 for (const u of USERS) {
   const { data, error } = await admin.auth.admin.createUser({

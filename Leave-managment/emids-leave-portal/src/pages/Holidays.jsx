@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { dayName } from '../data.js'
 import { legacyHolidayData } from '../data/legacyHolidayData'
 import { useAuth } from '../store/AuthContext'
+import { Rise } from '../components/UI'
 import { supabase } from '../lib/supabase'
 
 const LEGACY_KEY = 'emids-optional-holidays'
@@ -168,16 +169,16 @@ export default function Holidays() {
 
   return (
     <div className="page">
-      <header className="page-head">
+      <Rise as="header" i={0} className="page-head">
         <span className="eyebrow">↘ 05 · Company Calendar</span>
         <h1>Holiday calendar.</h1>
         <p>
           Compare locations before you plan. Optional holidays are employee-selected —
           pick three for the year, they switch to paid leave on your request.
         </p>
-      </header>
+      </Rise>
 
-      <div className="hl-filters">
+      <Rise i={1} className="hl-filters">
         <label className="field">
           <span className="field__label">01 · Country</span>
           <select className="select" value={country} onChange={(e) => setCountry(e.target.value)}>
@@ -199,9 +200,9 @@ export default function Holidays() {
         <div className="hl-meter" style={{ marginLeft: 'auto' }}>
           CHOSEN <b>{picks === null ? '…' : chosen.length}</b> / 3
         </div>
-      </div>
+      </Rise>
 
-      <div className="hl-cols">
+      <Rise i={2} className="hl-cols">
         <div className="card">
           <div className="hl-panel-head">
             <h3>Fixed holidays · {location}</h3>
@@ -213,6 +214,10 @@ export default function Holidays() {
                 <tr><th>Date</th><th>Day</th><th>Holiday</th></tr>
               </thead>
               <tbody>
+                {all === null &&
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={`sk-fixed-${i}`}><td colSpan={3}><div className="skeleton" style={{ height: 12 }} /></td></tr>
+                  ))}
                 {fixed.map((h) => (
                   <tr key={h.id}>
                     <td className="nowrap">
@@ -223,7 +228,7 @@ export default function Holidays() {
                   </tr>
                 ))}
                 {fixed.length === 0 && (
-                  <tr><td colSpan={3} className="table__empty">{all === null ? 'Loading calendar…' : 'No holidays on file.'}</td></tr>
+                  <tr><td colSpan={3} className="table__empty">No holidays on file.</td></tr>
                 )}
               </tbody>
             </table>
@@ -241,6 +246,10 @@ export default function Holidays() {
                 <tr><th style={{ width: 44 }}>Pick</th><th>Date</th><th>Day</th><th>Holiday</th></tr>
               </thead>
               <tbody>
+                {all === null &&
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={`sk-opt-${i}`}><td colSpan={4}><div className="skeleton" style={{ height: 12 }} /></td></tr>
+                  ))}
                 {optional.map((h) => {
                   const isPicked = picks?.has(h.id)
                   return (
@@ -264,13 +273,13 @@ export default function Holidays() {
                   )
                 })}
                 {optional.length === 0 && (
-                  <tr><td colSpan={4} className="table__empty">{all === null ? 'Loading calendar…' : 'No holidays on file.'}</td></tr>
+                  <tr><td colSpan={4} className="table__empty">No holidays on file.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      </Rise>
     </div>
   )
 }

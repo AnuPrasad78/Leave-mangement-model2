@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { separationReasons } from '../data.js'
 import { useAuth } from '../store/AuthContext'
 import { supabase } from '../lib/supabase'
-import { WarnBanner, ConfirmModal } from '../components/UI'
+import { WarnBanner, ConfirmModal, Rise } from '../components/UI'
 
 export default function SeparationRequest() {
   const navigate = useNavigate()
@@ -45,13 +45,13 @@ export default function SeparationRequest() {
 
   return (
     <div className="page">
-      <header className="page-head">
+      <Rise as="header" i={0} className="page-head">
         <span className="eyebrow" style={{ color: 'var(--red-deep)' }}>↘ 06 · Offboarding</span>
         <h1>Separation request.</h1>
         <p>Raise your intent to leave Emids. HR takes it from there — notice period, exit checklist, final settlement.</p>
-      </header>
+      </Rise>
 
-      <div className="card sep-card">
+      <Rise i={1} className="card sep-card">
         <div className="sep-bar" />
         <div className="form-body">
           <WarnBanner>
@@ -99,7 +99,7 @@ export default function SeparationRequest() {
           <button className="btn btn--ghost" onClick={() => navigate('/dashboard')}>Cancel</button>
           <button className="btn btn--danger" onClick={submit}>Submit Separation Request</button>
         </div>
-      </div>
+      </Rise>
 
       {confirming && (
         <ConfirmModal

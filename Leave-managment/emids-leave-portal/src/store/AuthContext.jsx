@@ -29,6 +29,23 @@ const mapTeamRow = (r) => ({
   absenceType: r.leave_types?.name ?? '',
 })
 
+const mapNotif = (n) => ({
+  id: n.id,
+  type: n.type,
+  requestNo: n.request_no,
+  message: n.message,
+  isRead: n.is_read,
+  createdAt: n.created_at,
+})
+
+const humaneInsertError = (message = '') => {
+  const m = message.toLowerCase()
+  if (m.includes('cannot start in the past')) return 'Leave cannot start in the past.'
+  if (m.includes('no_overlap')) return 'Those dates overlap one of your pending or approved requests.'
+  if (m.includes('working day')) return 'Pick a range with at least one working day.'
+  return message
+}
+
 const toBalances = (row) => {
   if (!row) return null
   const opening = Number(row.opening_annual)
@@ -61,6 +78,7 @@ export function AuthProvider({ children }) {
   const [balances, setBalances] = useState(null)
   const [leaveTypes, setLeaveTypes] = useState([])
   const [toast, setToastState] = useState(null)
+  const [notifications, setNotifications] = useState([])
   const meRef = useRef(null) // { uid, id } — id = employees.id
 
   const setToast = useCallback((msg, kind = 'ok') => {
@@ -114,6 +132,28 @@ export function AuthProvider({ children }) {
     setLeaveTypes((data ?? []).map((r) => r.name))
   }, [])
 
+  const loadNotifications = useCallback(async (meId) => {
+    const { data } = await supabase
+      .from('notifications')
+      .select('id, type, request_no, message, is_read, created_at')
+      .eq('recipient_id', meId)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setNotifications((data ?? []).map(mapNotif))
+  }, [])
+
+  const markRead = useCallback(async (id) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id)
+  }, [])
+
+  const markAllRead = useCallback(async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+    const meId = meRef.current?.id
+    if (!meId) return
+    await supabase.from('notifications').update({ is_read: true }).eq('recipient_id', meId).eq('is_read', false)
+  }, [])
+
   const handleSession = useCallback(async (session) => {
     const user = session?.user
     if (!user) {
@@ -123,37 +163,38 @@ export function AuthProvider({ children }) {
       setMine([])
       setTeam([])
       setBalances(null)
+      setNotifications([])
       return
     }
     if (!meRef.current || meRef.current.uid !== user.id) {
       meRef.current = { uid: user.id }
+      // The manager name is fetched separately: the self-FK embed
+      // (manager:employees) resolves unpredictably on PostgREST —
+      // it guesses the children side and errors when hinted.
       const { data: p } = await supabase
         .from('employees')
         .select('*')
         .eq('auth_user_id', user.id)
         .single()
-      // Manager name fetched separately: a self-embed on employees resolves to
-      // the reports side by default under RLS, which showed reports, not the manager.
-      let profile = p ?? null
-      if (profile?.manager_id) {
-        const { data: mgr } = await supabase
+      if (p?.manager_id) {
+        const { data: mgrRows } = await supabase
           .from('employees')
           .select('full_name')
-          .eq('id', profile.manager_id)
-          .single()
-        profile = { ...profile, manager: mgr ? { full_name: mgr.full_name } : null }
+          .eq('id', p.manager_id)
+        p.manager = mgrRows?.[0] ?? []
       }
-      meRef.current.id = profile?.id ?? null
-      setProfile(profile)
+      meRef.current.id = p?.id ?? null
+      setProfile(p ?? null)
       await Promise.all([
         loadMine(p?.id),
         loadTeam(p?.id),
         loadBalances(p?.id),
         loadLeaveTypes(),
+        loadNotifications(p?.id),
       ])
     }
     setSignedIn(true)
-  }, [loadMine, loadTeam, loadBalances, loadLeaveTypes])
+  }, [loadMine, loadTeam, loadBalances, loadLeaveTypes, loadNotifications])
 
   useEffect(() => {
     let mounted = true
@@ -173,6 +214,7 @@ export function AuthProvider({ children }) {
         setMine([])
         setTeam([])
         setBalances(null)
+        setNotifications([])
       } else {
         handleSession(session)
       }
@@ -182,6 +224,36 @@ export function AuthProvider({ children }) {
       subscription.unsubscribe()
     }
   }, [handleSession])
+
+  // Live badge: react to INSERT/UPDATE/DELETE on my notifications without a manual refresh.
+  useEffect(() => {
+    const meId = meRef.current?.id ?? null
+    if (!meId) {
+      setNotifications([])
+      return
+    }
+    const channel = supabase
+      .channel('notifications:' + meId)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: 'recipient_id=eq.' + meId },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setNotifications((prev) => [mapNotif(payload.new), ...prev.filter((n) => n.id !== payload.new.id)])
+          } else if (payload.eventType === 'UPDATE') {
+            setNotifications((prev) => prev.map((n) => (n.id === payload.new.id ? { ...n, ...mapNotif(payload.new) } : n)))
+          } else if (payload.eventType === 'DELETE') {
+            setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id))
+          }
+        }
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [signedIn, profile?.id])
+
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.isRead).length, [notifications])
 
   const signIn = useCallback(async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -219,7 +291,7 @@ export function AuthProvider({ children }) {
       .select('request_no')
       .single()
     if (error) {
-      setToast(error.message, 'red')
+      setToast(humaneInsertError(error.message), 'red')
       return null
     }
     await loadMine(meId)
@@ -256,14 +328,54 @@ export function AuthProvider({ children }) {
     await loadTeam(meId)
   }, [loadTeam, setToast])
 
+  const decideMany = useCallback(async (ids, decision) => {
+    const meId = meRef.current?.id
+    if (!meId || !ids.length) return null
+    const ok = []
+    const okFailed = []
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        supabase
+          .from('leave_requests')
+          .update({
+            status: decision,
+            approver_id: meId,
+            decided_at: new Date().toISOString(),
+          })
+          .eq('request_no', id)
+          .then(({ error }) => {
+            if (error) throw id
+            return id
+          })
+      )
+    )
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') ok.push(ids[i])
+      else okFailed.push(ids[i])
+    })
+    okFailed.forEach((id) => setToast(`Failed to update ${id}`, 'red'))
+    if (ok.length) {
+      setToast(
+        ok.length === ids.length
+          ? `${ok.length} request${ok.length === 1 ? '' : 's'} ${decision.toLowerCase()}`
+          : `${ok.length} of ${ids.length} ${decision.toLowerCase()} · ${okFailed.length} failed`,
+        decision === 'Approved' ? 'ok' : 'red'
+      )
+    }
+    await loadTeam(meId)
+    return { ok, failed: okFailed }
+  }, [loadTeam, setToast])
+
   const value = useMemo(
     () => ({
       signedIn, signIn, signOut,
       profile, mine, team, balances, leaveTypes, authReady,
-      addMine, decide, cancelMine, toast, setToast,
+      addMine, decide, decideMany, cancelMine, toast, setToast,
+      notifications, unreadCount, loadNotifications, markRead, markAllRead,
       CURRENT_YEAR,
     }),
-    [signedIn, signIn, signOut, profile, mine, team, balances, leaveTypes, authReady, addMine, decide, cancelMine, toast, setToast]
+    [signedIn, signIn, signOut, profile, mine, team, balances, leaveTypes, authReady, addMine, decide, decideMany, cancelMine, toast, setToast,
+      notifications, unreadCount, loadNotifications, markRead, markAllRead]
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/AuthContext'
+import { DATA_MODE, setDataMode } from '../lib/dataMode'
 import logoLight from '../assets/emids-logo-light.svg'
 
 const FEATURES = [
@@ -118,6 +119,16 @@ export default function Login() {
           </p>
         </div>
       </section>
+
+      <button
+        type="button"
+        className="data-switch"
+        title="Toggle data source — reloads the app"
+        onClick={() => setDataMode(DATA_MODE === 'mock' ? 'supabase' : 'mock')}
+      >
+        <span className="mono">DATA</span>
+        {DATA_MODE === 'mock' ? 'MOCK ⇄ CLOUD' : 'CLOUD ⇄ MOCK'}
+      </button>
     </div>
   )
 }

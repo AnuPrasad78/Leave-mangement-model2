@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { fmtDate } from '../data.js'
 import { useAuth } from '../store/AuthContext'
-import { StatusPill, ConfirmModal } from '../components/UI'
+import { StatusPill, ConfirmModal, Rise } from '../components/UI'
 import { IconBan } from '../components/Icons'
 
 export default function LeaveDetails() {
@@ -30,24 +30,24 @@ export default function LeaveDetails() {
 
   return (
     <div className="page">
-      <header className="page-head">
+      <Rise as="header" i={0} className="page-head">
         <span className="eyebrow">↘ 03 · My Requests</span>
         <h1>Leave details.</h1>
         <p>Everything you have raised in the current leave year — newest first.</p>
-      </header>
+      </Rise>
 
-      <section className="strip" aria-label="Summary">
+      <Rise as="section" i={1} className="strip" aria-label="Summary">
         {strip.map(([label, num]) => (
           <div className="strip__cell" key={label}>
-            <div className="strip__num">
+            <div className="strip__num num-grad">
               {num} <small>{num === 1 ? 'REQ' : 'REQS'}</small>
             </div>
             <div className="strip__label">{label}</div>
           </div>
         ))}
-      </section>
+      </Rise>
 
-      <div className="card">
+      <Rise i={2} className="card">
         <div className="hl-panel-head">
           <h3>Request History</h3>
           <span className="hl-count">{mine.length} ENTRIES · LV-FY2026</span>
@@ -55,6 +55,7 @@ export default function LeaveDetails() {
         {mine.length === 0 ? (
           <div className="table__empty">No requests on file. (<a href="/apply-leave">Raise one</a> ↗)</div>
         ) : (
+          <div style={{ overflowX: 'auto' }}>
           <table className="table">
             <thead>
               <tr>
@@ -86,8 +87,9 @@ export default function LeaveDetails() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
-      </div>
+      </Rise>
 
       {confirming && (
         <ConfirmModal

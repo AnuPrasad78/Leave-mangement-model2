@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/AuthContext'
-import { Donut } from '../components/UI'
+import { Donut, Rise } from '../components/UI'
 import {
   IconCalendarPlus, IconFileText, IconClipboardCheck, IconArrowUpRight,
   IconId, IconBuilding, IconBriefcase, IconSitemap, IconUserCheck, IconLifebuoy, IconMail,
@@ -16,9 +16,11 @@ const firstName = (fullName) => (fullName ?? '').split(' ').slice(0, 2).join(' '
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { setToast, profile, balances: fetched } = useAuth()
+  const { setToast, profile, balances: fetched, team } = useAuth()
 
   const balances = fetched ?? { totalCredited: 0, utilized: 0, rows: [] }
+  const teamPending = team ? team.filter((r) => r.status === 'Pending').length : 0
+  const showStrip = profile?.system_role === 'manager' && teamPending > 0
 
   const DETAILS = [
     { label: 'Emp ID', value: profile?.emp_no, icon: IconId },
@@ -30,13 +32,13 @@ export default function Dashboard() {
 
   return (
     <div className="page">
-      <header className="page-head">
+      <Rise as="header" i={0} className="page-head">
         <span className="eyebrow">↘ Dashboard · {profile?.location}</span>
         <h1>Welcome, {firstName(profile?.full_name)}.</h1>
-      </header>
+      </Rise>
 
       {/* 1 · Employee overview */}
-      <section className="card brand-frame card--padded dash-overview">
+      <Rise as="section" i={1} className="card brand-frame card--padded dash-overview">
         <div className="dash-overview__who">
           <span className="avatar avatar--lg">{profile?.initials}</span>
           <div>
@@ -53,26 +55,50 @@ export default function Dashboard() {
             </div>
           ))}
         </dl>
-      </section>
+      </Rise>
 
-      {/* 2 · Quick actions */}
+      {/* 2 · Manager queue glanceable */}
+      {showStrip && (
+        <Rise as="section" i={2} className="card brand-frame card--padded queue-strip">
+          <div className="queue-strip__text">
+            <span className="eyebrow">↘ Team queue</span>
+            <strong>
+              {teamPending} pending request{teamPending === 1 ? '' : 's'}{' '}
+              {teamPending === 1 ? 'needs' : 'need'} your decision
+            </strong>
+          </div>
+          <button className="btn btn--ghost" onClick={() => navigate('/leave-requests')}>
+            REVIEW →
+          </button>
+        </Rise>
+      )}
+
+      {/* 2b · Quick actions */}
       <section className="dash-actions" aria-label="Quick actions">
-        {ACTIONS.map((a) => (
-          <button key={a.num} className="card action-card brand-frame" onClick={() => navigate(a.to)}>
+        {ACTIONS.map((a, idx) => (
+          <Rise
+            key={a.num}
+            as="button"
+            i={idx + (showStrip ? 2 : 1)}
+            className={`card action-card brand-frame ${idx === 0 ? 'action-card--featured' : ''}`}
+            onClick={() => navigate(a.to)}
+          >
             <div className="action-card__head">
               <span className="eyebrow">↘ {a.num} / Action</span>
               <IconArrowUpRight size={18} />
             </div>
-            <a.icon className="action-card__icon" size={26} />
+            <span className="action-card__icon-tile">
+              <a.icon size={20} />
+            </span>
             <div className="action-card__title">{a.title}</div>
             <p className="action-card__text">{a.text}</p>
             <span className="action-card__go">OPEN <IconArrowUpRight size={12} /></span>
-          </button>
+          </Rise>
         ))}
       </section>
 
       {/* 3 · Leave balances */}
-      <section className="dash-balances">
+      <Rise as="section" i={showStrip ? 6 : 5} className="dash-balances">
         <div className="card card--padded brand-frame dash-balance__main">
           <div className="dash-balance__head">
             <span className="eyebrow">↘ Annual Leave · Used vs Credited</span>
@@ -80,26 +106,41 @@ export default function Dashboard() {
           </div>
 
           <div className="dash-balance__grid">
-            <div className="dash-donut">
-              <Donut used={balances.utilized} total={balances.totalCredited} label={`${balances.utilized} / ${balances.totalCredited} DAYS`} />
-              <div className="dash-donut__cap mono">ANNUAL POOL · AS OF TODAY</div>
-            </div>
+            {!fetched ? (
+              <div className="dash-donut" aria-hidden="true">
+                <div className="dash-sk-donut skeleton" />
+                <div className="dash-sk-cap skeleton" />
+              </div>
+            ) : (
+              <div className="dash-donut">
+                <Donut used={balances.utilized} total={balances.totalCredited} label={`${balances.utilized} / ${balances.totalCredited} DAYS`} />
+                <div className="dash-donut__cap mono">ANNUAL POOL · AS OF TODAY</div>
+              </div>
+            )}
 
             <div className="dash-bars">
-              {balances.rows.map((r, i) => (
-                <div className="bar-row" key={r.key}>
-                  <span className="bar-row__label">
-                    {i + 1 < 10 ? `0${i + 1}` : i + 1} · {r.label}
-                  </span>
-                  <span className="bar-row__track">
-                    <span
-                      className="bar-row__fill"
-                      style={{ width: `${Math.min(100, (r.value / r.max) * 100)}%` }}
-                    />
-                  </span>
-                  <span className="bar-row__val mono">{r.value.toFixed(2)}</span>
-                </div>
-              ))}
+              {!fetched
+                ? Array.from({ length: 4 }).map((_, i) => (
+                    <div className="bar-row" key={`sk-${i}`} aria-hidden="true">
+                      <span className="bar-row__skel-label skeleton" />
+                      <span className="bar-row__skel-track skeleton" />
+                      <span className="bar-row__skel-val skeleton" />
+                    </div>
+                  ))
+                : balances.rows.map((r, i) => (
+                    <div className="bar-row" key={r.key}>
+                      <span className="bar-row__label">
+                        {i + 1 < 10 ? `0${i + 1}` : i + 1} · {r.label}
+                      </span>
+                      <span className="bar-row__track">
+                        <span
+                          className="bar-row__fill"
+                          style={{ width: `${Math.min(100, (r.value / r.max) * 100)}%` }}
+                        />
+                      </span>
+                      <span className="bar-row__val mono">{r.value.toFixed(2)}</span>
+                    </div>
+                  ))}
             </div>
           </div>
 
@@ -128,7 +169,7 @@ export default function Dashboard() {
             <IconLifebuoy size={16} /> Help desk
           </button>
         </aside>
-      </section>
+      </Rise>
     </div>
   )
 }

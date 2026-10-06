@@ -1,9 +1,19 @@
 /* ---- Login: split screen ---- */
-.login { min-height: 100vh; display: flex; }
+.login { min-height: 100vh; display: flex; position: relative; }
+.login::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--grad);
+  z-index: 5;
+}
 
 .login__brand {
   flex: 1 1 52%;
-  background: linear-gradient(135deg, #16545d 0%, #2a7682 55%, #3c93a1 100%);
+  background: var(--grad-deep);
   color: var(--canvas);
   display: flex;
   flex-direction: column;
@@ -133,3 +143,27 @@
 @media (max-width: 960px) {
   .login__brand { display: none; }
 }
+
+/* ---- data-source toggle pill (dev) ---- */
+.data-switch {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: color 150ms var(--ease-resolve), border-color 150ms var(--ease-resolve), opacity 150ms var(--ease-resolve);
+}
+.data-switch::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
+.data-switch .mono { color: var(--ink-3); letter-spacing: 0.18em; }
+.data-switch:hover { border-color: var(--teal); color: var(--teal-deep); }

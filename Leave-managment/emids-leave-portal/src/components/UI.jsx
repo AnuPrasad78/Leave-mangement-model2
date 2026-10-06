@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { useAuth } from '../store/AuthContext'
 import { IconAlertTriangle, IconCheck, IconBan, IconX } from './Icons'
 
@@ -45,6 +46,7 @@ export function ConfirmModal({ title, text, confirmLabel, danger, onConfirm, onC
 }
 
 export function Donut({ used, total, size = 190, label }) {
+  const gid = useId()
   const r = size * 0.39
   const cx = size / 2
   const cy = size / 2
@@ -53,13 +55,20 @@ export function Donut({ used, total, size = 190, label }) {
   const usedLen = circ * frac
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="donut">
+      <defs>
+        <linearGradient id={gid} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#9dc6cc" />
+          <stop offset="50%" stopColor="#72b3be" />
+          <stop offset="100%" stopColor="#57a6b3" />
+        </linearGradient>
+      </defs>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--teal-light)" strokeWidth="20" />
       <circle
         cx={cx}
         cy={cy}
         r={r}
         fill="none"
-        stroke="var(--teal)"
+        stroke={`url(#${gid})`}
         strokeWidth="20"
         strokeDasharray={`${usedLen} ${circ - usedLen}`}
         strokeLinecap="butt"
@@ -72,6 +81,14 @@ export function Donut({ used, total, size = 190, label }) {
         {label}
       </text>
     </svg>
+  )
+}
+
+export function Rise({ i = 0, as: Tag = 'div', className = '', style, children, ...rest }) {
+  return (
+    <Tag className={`${className ? `${className} ` : ''}rise`} style={{ ...(style ?? {}), '--rise-i': i }} {...rest}>
+      {children}
+    </Tag>
   )
 }
 

@@ -5,6 +5,12 @@
   --teal-light: #abc7ca;
   --teal-wash: #eef5f6;
   --grad: linear-gradient(90deg, #9dc6cc 0%, #72b3be 50%, #57a6b3 100%);
+  --grad-deep: linear-gradient(135deg, #16545d 0%, #2a7682 55%, #3c93a1 100%);
+  --motion-fast: 150ms;
+  --motion-med: 240ms;
+  --motion-stagger: 40ms;
+  --pill-pulse-period: 2400ms;
+  --texture-opacity: 0.08;
   --black: #0e0e0e;
   --ink: #171a19;
   --ink-2: #4d5553;
@@ -90,14 +96,15 @@ a { color: var(--teal-deep); }
   padding: 12px 20px;
   border: 1px solid transparent;
   border-radius: 0;
-  transition: background 120ms linear, color 120ms linear, border-color 120ms linear;
+  transition: background var(--motion-fast) linear, color var(--motion-fast) linear,
+    border-color var(--motion-fast) linear, filter var(--motion-fast) linear;
   user-select: none;
 }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.btn--primary { background: var(--teal); color: #ffffff; }
-.btn--primary:hover:not(:disabled) { background: var(--teal-deep); }
+.btn--primary { background: var(--grad-deep); color: #ffffff; border-radius: 0 0 0 8px; }
+.btn--primary:hover:not(:disabled) { filter: brightness(1.12); }
 
 .btn--ghost { background: transparent; color: var(--ink); border-color: var(--hairline); }
 .btn--ghost:hover:not(:disabled) { background: var(--canvas); border-color: var(--ink-3); }
@@ -176,6 +183,11 @@ a { color: var(--teal-deep); }
   border-radius: 50%;
   background: currentColor;
 }
+.pill--pending::before { animation: pill-pulse var(--pill-pulse-period) ease-in-out infinite; }
+@keyframes pill-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
 .pill--approved { color: #1f7a63; background: var(--green-wash); border-color: #b5e0d3; }
 .pill--pending { color: #0c7fae; background: var(--blue-wash); border-color: #b3e4f8; }
 .pill--rejected { color: var(--red-deep); background: var(--red-wash); border-color: #f5c1c1; }
@@ -203,9 +215,18 @@ a { color: var(--teal-deep); }
   color: var(--ink);
   vertical-align: middle;
 }
-.table tbody tr { transition: background 0ms; }
+.table tbody tr { transition: background var(--motion-fast) linear; }
 .table tbody tr:hover { background: var(--teal-wash); }
+.table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 0 var(--teal); }
 .table__empty { text-align: center; padding: 32px; color: var(--ink-3); }
+.table__empty::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 2px;
+  background: var(--grad);
+  margin: 10px auto 0;
+}
 
 /* ---- page scaffolding (inside layout) ---- */
 .page { padding: 28px 32px 48px; max-width: 1280px; }
@@ -282,3 +303,35 @@ a { color: var(--teal-deep); }
 .mono { font-family: var(--mono); }
 .muted { color: var(--ink-3); }
 .nowrap { white-space: nowrap; }
+
+/* ---- num-grad: hero numerals wear the light gradient as text ---- */
+.num-grad {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- rise: staggered page-mount entrance (max 6 steps + 360ms) ---- */
+.rise {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: rise-in var(--motion-med) var(--ease-resolve) forwards;
+  animation-delay: calc(var(--rise-i, 0) * var(--motion-stagger));
+}
+@keyframes rise-in { to { opacity: 1; transform: none; } }
+
+/* ---- skeleton: teal-wash↔canvas sweep for tables while fetching ---- */
+.skeleton {
+  background: linear-gradient(100deg, var(--canvas) 40%, var(--teal-wash) 50%, var(--canvas) 60%);
+  background-size: 200% 100%;
+  animation: skeleton-sweep 1.4s linear infinite;
+}
+@keyframes skeleton-sweep { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+
+/* ---- motion guardrail: everything above is killable ---- */
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; opacity: 1; transform: none; }
+  .skeleton { animation: none; }
+  .pill--pending::before { animation: none; }
+}

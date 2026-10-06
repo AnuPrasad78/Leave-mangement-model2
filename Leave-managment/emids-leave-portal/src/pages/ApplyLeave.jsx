@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { businessDaysBetween } from '../data.js'
+import { useMemo, useRef, useState } from 'react'
+import { businessDaysBetween, fmtDate } from '../data.js'
 import { useAuth } from '../store/AuthContext'
+import { Rise } from '../components/UI'
 import { useNavigate } from 'react-router-dom'
 
 const MODES = ['Full Day', 'First Half', 'Second Half']
@@ -12,7 +13,7 @@ const todayIso = () => {
 
 export default function ApplyLeave() {
   const navigate = useNavigate()
-  const { setToast, addMine, leaveTypes } = useAuth()
+  const { setToast, addMine, leaveTypes, mine } = useAuth()
   const [type, setType] = useState('Paid Time Off')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -28,6 +29,24 @@ export default function ApplyLeave() {
     return n
   }, [from, to, mode])
 
+  const toRef = useRef(null)
+
+  const overlapping = useMemo(() => {
+    if (!from || !to || to < from) return []
+    return mine.filter(
+      (r) => (r.status === 'Pending' || r.status === 'Approved') && r.from <= to && r.to >= from
+    )
+  }, [mine, from, to])
+
+  const dateNote = overlapping.length
+    ? `Overlaps ${overlapping
+        .slice(0, 2)
+        .map((r) => `${r.id} · ${fmtDate(r.from)} → ${fmtDate(r.to)} (${r.status})`)
+        .join('  ·  ')}${overlapping.length > 2 ? `  ·  +${overlapping.length - 2} more` : ''}`
+    : from && to && to >= from && days === 0
+      ? 'The selected range has no working days.'
+      : null
+
   const [submitting, setSubmitting] = useState(false)
 
   const submit = async (e) => {
@@ -39,6 +58,7 @@ export default function ApplyLeave() {
     if (from && from < todayIso()) errs.from = 'Leave cannot start in the past.'
     if (from && to && to < from) errs.to = 'End date is before the start date.'
     if (reason.trim().length < 5) errs.reason = 'Tell the approver why, in a line or two.'
+    if (overlapping.length) errs.to = 'Those dates overlap one of your pending or approved requests.'
     setErrors(errs)
     if (Object.keys(errs).length || !days) return
     setSubmitting(true)
@@ -51,12 +71,12 @@ export default function ApplyLeave() {
 
   return (
     <div className="page">
-      <header className="page-head">
+      <Rise as="header" i={0} className="page-head">
         <span className="eyebrow">↘ 02 · New Request</span>
         <h1>Request time off.</h1>
-      </header>
+      </Rise>
 
-      <form className="card form-card" onSubmit={submit} noValidate>
+      <Rise as="form" i={1} className="card form-card" onSubmit={submit} noValidate>
         <div className="form-body">
           <div className="field">
             <span className="field__label">01 · Leave Type <span className="req">*</span></span>
@@ -83,7 +103,14 @@ export default function ApplyLeave() {
                 type="date"
                 min={todayIso()}
                 value={from}
-                onChange={(e) => setFrom(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setFrom(v)
+                  if (v && (!to || to < v)) {
+                    setTo(v)
+                    toRef.current?.focus()
+                  }
+                }}
               />
               {errors.from && <span className="muted mono">{errors.from}</span>}
             </label>
@@ -92,11 +119,13 @@ export default function ApplyLeave() {
               <input
                 className="input"
                 type="date"
+                ref={toRef}
                 value={to}
                 min={from || undefined}
                 onChange={(e) => setTo(e.target.value)}
               />
               {errors.to && <span className="muted mono">{errors.to}</span>}
+              {dateNote && <span className="muted mono">{dateNote}</span>}
             </label>
             <label className="field">
               <span className="field__label">04 · Day Mode <span className="req">*</span></span>
@@ -142,7 +171,7 @@ export default function ApplyLeave() {
             {submitting ? 'Submitting…' : 'Submit Request'}
           </button>
         </div>
-      </form>
+      </Rise>
     </div>
   )
 }

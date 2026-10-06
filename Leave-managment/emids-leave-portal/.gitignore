@@ -3,3 +3,8 @@ dist/
 .env
 .env.local
 *.local
+
+# docs + local harness state stay out of git
+*.md
+!README.md
+.claude/
