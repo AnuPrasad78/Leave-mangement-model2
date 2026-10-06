@@ -19,8 +19,11 @@ const NAV = [
 
 export default function Layout({ children }) {
   const [open, setOpen] = useState(false)
-  const { signOut, profile } = useAuth()
+  const { signOut, profile, team, balances } = useAuth()
   const navigate = useNavigate()
+
+  const pendingRequests = team.filter((r) => r.status === 'Pending').length
+  const fmtDays = (v) => (Number.isInteger(v) ? String(v) : v.toFixed(2))
 
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   const weekday = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
@@ -74,12 +77,30 @@ export default function Layout({ children }) {
           </button>
         </div>
 
+        {balances && (
+          <div className="drawer__counts">
+            <div className="drawer__count">
+              <b>{fmtDays(Math.max(0, balances.totalCredited - balances.utilized))} / {fmtDays(balances.totalCredited)}</b>
+              <span>Annual leave</span>
+            </div>
+            <div className="drawer__count">
+              <b>{fmtDays(Math.max(0, balances.rows.find((r) => r.key === 'contAvailable')?.value ?? 0))} / {fmtDays(balances.rows.find((r) => r.key === 'contAvailable')?.max ?? 10)}</b>
+              <span>Contingency</span>
+            </div>
+          </div>
+        )}
+
         <nav className="drawer__nav">
           {NAV.map(({ to, num, label, icon: Icon }) => (
             <NavLink key={to} to={to} className="nav-item" onClick={() => setOpen(false)}>
               <Icon size={18} />
               <span className="mono">{num}</span>
-              {label}
+              <span className="nav-item__label">{label}</span>
+              {to === '/leave-requests' && pendingRequests > 0 && (
+                <span className="nav-item__badge" title={`${pendingRequests} pending request${pendingRequests > 1 ? 's' : ''}`}>
+                  {pendingRequests}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

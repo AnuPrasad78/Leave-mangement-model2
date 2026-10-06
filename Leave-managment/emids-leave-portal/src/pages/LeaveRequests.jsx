@@ -3,23 +3,35 @@ import { fmtDate } from '../data.js'
 import { useAuth } from '../store/AuthContext'
 import { StatusPill } from '../components/UI'
 
-const FILTERS = ['All', 'Pending', 'Approved', 'Rejected']
+const FILTERS = ['Pending', 'All', 'Approved', 'Rejected']
 
 export default function LeaveRequests() {
-  const { team, decide } = useAuth()
+  const { team, decide, decideMany } = useAuth()
   const [busyId, setBusyId] = useState(null)
-  const [filter, setFilter] = useState('All')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [filter, setFilter] = useState('Pending')
 
   const rows = useMemo(
     () => (filter === 'All' ? team : team.filter((r) => r.status === filter)),
     [team, filter]
   )
-  const pending = team.filter((r) => r.status === 'Pending').length
+  const pendingIds = useMemo(
+    () => team.filter((r) => r.status === 'Pending').map((r) => r.id),
+    [team]
+  )
+  const pending = pendingIds.length
 
   const act = (id, decision) => { setBusyId(null); decide(id, decision) }
   const actWithBusy = (id, decision) => {
     setBusyId(id)
     setTimeout(() => act(id, decision), 350)
+  }
+  const approveAll = async () => {
+    setBulkBusy(true)
+    setTimeout(async () => {
+      await decideMany(pendingIds, 'Approved')
+      setBulkBusy(false)
+    }, 350)
   }
 
   return (
@@ -34,21 +46,39 @@ export default function LeaveRequests() {
       </header>
 
       <div className="hl-filters">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            className={`chip ${filter === f ? 'is-on' : ''}`}
-            onClick={() => setFilter(f)}
+        <label className="hl-select">
+          <span className="hl-select__label">SHOWING</span>
+          <select
+            className="select"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            aria-label="Filter requests by status"
           >
-            {f === 'Pending' ? `Pending (${pending})` : f}
-          </button>
-        ))}
+            {FILTERS.map((f) => (
+              <option key={f} value={f}>
+                {f === 'Pending' ? `Pending (${pending})` : f}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="card">
         <div className="hl-panel-head">
           <h3>Team Requests</h3>
-          <span className="hl-count">{rows.length} ENTRIES · CENTERWELL C&P</span>
+          <div className="hl-panel-head__right">
+            {pending >= 2 && (
+              <button
+                className="btn btn--primary btn--sm"
+                disabled={bulkBusy}
+                onClick={approveAll}
+                title={`Approve all ${pending} pending requests`}
+              >
+                {bulkBusy ? 'APPROVING…' : `APPROVE ALL (${pending})`}
+              </button>
+            )}
+            <span className="hl-count">{rows.length} ENTRIES</span>
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="table">
@@ -60,7 +90,7 @@ export default function LeaveRequests() {
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={9} className="table__empty">No {filter.toLowerCase()} requests right now.</td></tr>
+                <tr><td colSpan={9} className="table__empty">No {filter === 'All' ? '' : filter.toLowerCase()} requests right now.</td></tr>
               )}
               {rows.map((r) => (
                 <tr key={r.id}>

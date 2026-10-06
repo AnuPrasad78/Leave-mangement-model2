@@ -136,6 +136,16 @@
 .hl-panel-head { display: flex; justify-content: space-between; align-items: baseline; padding: 15px 18px; border-bottom: 1px solid var(--hairline-2); }
 .hl-panel-head h3 { font-size: 13.5px; font-weight: 700; color: var(--black); letter-spacing: 0.02em; }
 .hl-count { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.11em; color: var(--teal-deep); font-weight: 600; }
+.hl-panel-head__right { display: flex; align-items: center; gap: 14px; }
+
+.hl-select { display: flex; flex-direction: column; gap: 6px; }
+.hl-select__label {
+  font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.hl-select .select { width: 210px; height: 40px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+.btn--sm { padding: 8px 14px; font-size: 9.5px; letter-spacing: 0.1em; }
 .hl-date { display: flex; gap: 8px; align-items: center; }
 .hl-date b { font-family: var(--mono); font-size: 12.5px; color: var(--black); font-weight: 600; }
 .hl-date span { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; color: var(--ink-3); text-transform: uppercase; }

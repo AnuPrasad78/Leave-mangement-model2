@@ -245,14 +245,31 @@ export function AuthProvider({ children }) {
     await loadTeam(meId)
   }, [loadTeam, setToast])
 
+  const decideMany = useCallback(async (ids, decision) => {
+    const meId = meRef.current?.id
+    if (!meId || !ids.length) return
+    const { error } = await supabase
+      .from('leave_requests')
+      .update({
+        status: decision,
+        approver_id: meId,
+        decided_at: new Date().toISOString(),
+      })
+      .in('request_no', ids)
+    if (error) setToast(error.message, 'red')
+    else if (decision === 'Approved') setToast(`${ids.length} requests approved`, 'ok')
+    else setToast(`${ids.length} requests rejected`, 'red')
+    await loadTeam(meId)
+  }, [loadTeam, setToast])
+
   const value = useMemo(
     () => ({
       signedIn, signIn, signOut,
       profile, mine, team, balances, leaveTypes, authReady,
-      addMine, decide, cancelMine, toast, setToast,
+      addMine, decide, decideMany, cancelMine, toast, setToast,
       CURRENT_YEAR,
     }),
-    [signedIn, signIn, signOut, profile, mine, team, balances, leaveTypes, authReady, addMine, decide, cancelMine, toast, setToast]
+    [signedIn, signIn, signOut, profile, mine, team, balances, leaveTypes, authReady, addMine, decide, decideMany, cancelMine, toast, setToast]
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
