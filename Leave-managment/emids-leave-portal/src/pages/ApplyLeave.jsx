@@ -5,6 +5,11 @@ import { useNavigate } from 'react-router-dom'
 
 const MODES = ['Full Day', 'First Half', 'Second Half']
 
+const todayIso = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function ApplyLeave() {
   const navigate = useNavigate()
   const { setToast, addMine, leaveTypes } = useAuth()
@@ -31,6 +36,7 @@ export default function ApplyLeave() {
     if (!type) errs.type = 'Select a leave type.'
     if (!from) errs.from = 'Pick a from date.'
     if (!to) errs.to = 'Pick a to date.'
+    if (from && from < todayIso()) errs.from = 'Leave cannot start in the past.'
     if (from && to && to < from) errs.to = 'End date is before the start date.'
     if (reason.trim().length < 5) errs.reason = 'Tell the approver why, in a line or two.'
     setErrors(errs)
@@ -75,6 +81,7 @@ export default function ApplyLeave() {
               <input
                 className="input"
                 type="date"
+                min={todayIso()}
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
               />

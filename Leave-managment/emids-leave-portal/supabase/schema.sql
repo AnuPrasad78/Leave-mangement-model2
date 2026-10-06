@@ -315,6 +315,22 @@ create trigger optional_picks_cap
   before insert on public.optional_holiday_picks
   for each row execute function public.optional_picks_max_three();
 
+-- 5. Leave cannot start in the past. API inserts only: auth.uid() is null
+--    outside a JWT session, so seed.sql may backdate historical rows.
+create function public.leave_requests_no_backdated() returns trigger
+language plpgsql stable set search_path = public as $$
+begin
+  if new.start_date < current_date and auth.uid() is not null then
+    raise exception 'Leave cannot start in the past (start date %)', new.start_date
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+create trigger leave_requests_no_backdated
+  before insert on public.leave_requests
+  for each row execute function public.leave_requests_no_backdated();
+
 -- ---------- RLS ----------
 alter table public.employees             enable row level security;
 alter table public.leave_types           enable row level security;

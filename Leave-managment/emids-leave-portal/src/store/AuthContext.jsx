@@ -129,11 +129,22 @@ export function AuthProvider({ children }) {
       meRef.current = { uid: user.id }
       const { data: p } = await supabase
         .from('employees')
-        .select('*, manager:employees ( full_name )')
+        .select('*')
         .eq('auth_user_id', user.id)
         .single()
-      meRef.current.id = p?.id ?? null
-      setProfile(p ?? null)
+      // Manager name fetched separately: a self-embed on employees resolves to
+      // the reports side by default under RLS, which showed reports, not the manager.
+      let profile = p ?? null
+      if (profile?.manager_id) {
+        const { data: mgr } = await supabase
+          .from('employees')
+          .select('full_name')
+          .eq('id', profile.manager_id)
+          .single()
+        profile = { ...profile, manager: mgr ? { full_name: mgr.full_name } : null }
+      }
+      meRef.current.id = profile?.id ?? null
+      setProfile(profile)
       await Promise.all([
         loadMine(p?.id),
         loadTeam(p?.id),
