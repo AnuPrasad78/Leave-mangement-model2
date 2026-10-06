@@ -22,8 +22,8 @@
   --red-wash: #fdecec;
   --mauve: #b89dcb;
   --yellow: #f2c94c;
-  --font: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --mono: 'JetBrains Mono', Consolas, 'SF Mono', ui-monospace, monospace;
+  --font: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, sans-serif; /* label voice — same family, tabular numerals for data */
   --ease-resolve: cubic-bezier(0.2, 0, 0, 1);
   --ease-process: cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -38,7 +38,7 @@ body {
   background: var(--canvas);
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 button { font-family: inherit; cursor: pointer; }
@@ -56,14 +56,12 @@ a { color: var(--teal-deep); }
 /* ---- mono plates / eyebrows (brand: all-caps, tracked) ---- */
 .eyebrow {
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--teal-deep);
-  font-weight: 600;
+  font-weight: 700;
 }
-
-.eyebrow--ink { color: var(--ink-3); }
 
 /* ---- brand frame: sharp everywhere, 8px bottom-left only ---- */
 .brand-frame { border-radius: 0 0 0 8px; }
@@ -83,9 +81,9 @@ a { color: var(--teal-deep); }
   justify-content: center;
   gap: 8px;
   font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 12px 20px;
   border: 1px solid transparent;
@@ -117,9 +115,9 @@ a { color: var(--teal-deep); }
 .field__label,
 .form-label {
   font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-2);
 }
@@ -162,8 +160,8 @@ a { color: var(--teal-deep); }
   gap: 6px;
   font-family: var(--mono);
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   padding: 4px 10px;
   border: 1px solid;
@@ -187,7 +185,7 @@ a { color: var(--teal-deep); }
   font-family: var(--mono);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-2);
   text-align: left;
@@ -212,7 +210,7 @@ a { color: var(--teal-deep); }
 
 .page-head { margin-bottom: 22px; }
 .page-head .eyebrow { display: block; margin-bottom: 6px; }
-.page-head h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; color: var(--black); }
+.page-head h1 { font-size: 27px; font-weight: 800; letter-spacing: -0.015em; color: var(--black); }
 .page-head p { color: var(--ink-2); margin-top: 5px; font-size: 13.5px; max-width: 720px; }
 
 /* ---- spinner ---- */
@@ -279,6 +277,6 @@ a { color: var(--teal-deep); }
 .modal__actions { display: flex; gap: 10px; justify-content: flex-end; }
 
 /* ---- util ---- */
-.mono { font-family: var(--mono); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .muted { color: var(--ink-3); }
 .nowrap { white-space: nowrap; }

@@ -169,7 +169,7 @@ export default function Holidays() {
   return (
     <div className="page">
       <header className="page-head">
-        <span className="eyebrow">↘ 05 · Company Calendar</span>
+        <span className="eyebrow">Company Calendar</span>
         <h1>Holiday calendar.</h1>
         <p>
           Compare locations before you plan. Optional holidays are employee-selected —
@@ -179,19 +179,19 @@ export default function Holidays() {
 
       <div className="hl-filters">
         <label className="field">
-          <span className="field__label">01 · Country</span>
+          <span className="field__label">Country</span>
           <select className="select" value={country} onChange={(e) => setCountry(e.target.value)}>
             {countries.map((c) => <option key={c}>{c}</option>)}
           </select>
         </label>
         <label className="field">
-          <span className="field__label">02 · Location</span>
+          <span className="field__label">Location</span>
           <select className="select" value={location} onChange={(e) => setLocation(e.target.value)}>
             {locations.map((l) => <option key={l}>{l}</option>)}
           </select>
         </label>
         <label className="field">
-          <span className="field__label">03 · Year</span>
+          <span className="field__label">Year</span>
           <select className="select" value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {years.map((y) => <option key={y}>{y}</option>)}
           </select>

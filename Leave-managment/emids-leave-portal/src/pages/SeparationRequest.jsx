@@ -46,7 +46,7 @@ export default function SeparationRequest() {
   return (
     <div className="page">
       <header className="page-head">
-        <span className="eyebrow" style={{ color: 'var(--red-deep)' }}>↘ 06 · Offboarding</span>
+        <span className="eyebrow" style={{ color: 'var(--red-deep)' }}>Offboarding</span>
         <h1>Separation request.</h1>
         <p>Raise your intent to leave Emids. HR takes it from there — notice period, exit checklist, final settlement.</p>
       </header>
@@ -63,7 +63,7 @@ export default function SeparationRequest() {
 
           <div className="form-row form-row--2">
             <label className="field">
-              <span className="field__label">01 · Proposed Last Working Day <span className="req">*</span></span>
+              <span className="field__label">Proposed Last Working Day <span className="req">*</span></span>
               <input
                 className="input"
                 type="date"
@@ -74,7 +74,7 @@ export default function SeparationRequest() {
               {errors.lwd && <span className="mono muted">{errors.lwd}</span>}
             </label>
             <label className="field">
-              <span className="field__label">02 · Reason for Separation <span className="req">*</span></span>
+              <span className="field__label">Reason for Separation <span className="req">*</span></span>
               <select className="select" value={reason} onChange={(e) => setReason(e.target.value)}>
                 <option value="">Select a reason…</option>
                 {separationReasons.map((r) => <option key={r}>{r}</option>)}
@@ -84,7 +84,7 @@ export default function SeparationRequest() {
           </div>
 
           <label className="field">
-            <span className="field__label">03 · Remarks</span>
+            <span className="field__label">Remarks</span>
             <textarea
               className="textarea"
               placeholder="Optional — anything the exit team should know: knowledge-transfer owners, asset returns, relocation timelines."

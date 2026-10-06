@@ -31,7 +31,7 @@ export default function LeaveDetails() {
   return (
     <div className="page">
       <header className="page-head">
-        <span className="eyebrow">↘ 03 · My Requests</span>
+        <span className="eyebrow">My Requests</span>
         <h1>Leave details.</h1>
         <p>Everything you have raised in the current leave year — newest first.</p>
       </header>
@@ -53,7 +53,7 @@ export default function LeaveDetails() {
           <span className="hl-count">{mine.length} ENTRIES · LV-FY2026</span>
         </div>
         {mine.length === 0 ? (
-          <div className="table__empty">No requests on file. (<a href="/apply-leave">Raise one</a> ↗)</div>
+          <div className="table__empty">No requests on file. (<a href="/apply-leave">Raise one</a>)</div>
         ) : (
           <table className="table">
             <thead>

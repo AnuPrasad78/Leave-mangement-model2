@@ -37,7 +37,7 @@ export default function LeaveRequests() {
   return (
     <div className="page">
       <header className="page-head">
-        <span className="eyebrow">↘ 04 · Team Queue</span>
+        <span className="eyebrow">Team Queue</span>
         <h1>Leave requests.</h1>
         <p>
           Tenure of your team, at a glance. Pending items wait in this queue until you decide

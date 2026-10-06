@@ -1,15 +1,17 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/AuthContext'
+import { canApprove } from '../data'
 import { Donut } from '../components/UI'
+import { supabase } from '../lib/supabase'
 import {
-  IconCalendarPlus, IconFileText, IconClipboardCheck, IconArrowUpRight,
-  IconId, IconBuilding, IconBriefcase, IconSitemap, IconUserCheck, IconLifebuoy, IconMail,
+  IconCalendarPlus, IconFileText, IconClipboardCheck, IconLifebuoy, IconSun,
 } from '../components/Icons'
 
 const ACTIONS = [
-  { to: '/apply-leave', num: '01', title: 'Apply Leave', text: 'Time off, WFH, comp-off — logged against live balances.', icon: IconCalendarPlus },
-  { to: '/leave-details', num: '02', title: 'My Requests', text: 'Every request you have raised, with its current status.', icon: IconFileText },
-  { to: '/leave-requests', num: '03', title: 'Leave Requests', text: 'Approve or reject your team’s pending time off.', icon: IconClipboardCheck },
+  { to: '/apply-leave', title: 'Apply Leave', text: 'Time off, WFH, comp-off — logged against live balances.', icon: IconCalendarPlus },
+  { to: '/leave-details', title: 'My Requests', text: 'Every request you have raised, with its current status.', icon: IconFileText },
+  { to: '/leave-requests', title: 'Leave Requests', text: 'Approve or reject your team’s pending time off.', icon: IconClipboardCheck },
 ]
 
 const firstName = (fullName) => (fullName ?? '').split(' ').slice(0, 2).join(' ').trim()
@@ -20,63 +22,73 @@ export default function Dashboard() {
 
   const balances = fetched ?? { totalCredited: 0, utilized: 0, rows: [] }
 
-  const DETAILS = [
-    { label: 'Emp ID', value: profile?.emp_no, icon: IconId },
-    { label: 'Account', value: profile?.account, icon: IconBuilding },
-    { label: 'Project', value: profile?.project_name, icon: IconBriefcase },
-    { label: 'Function', value: profile?.function_name, icon: IconSitemap },
-    { label: 'Manager', value: profile?.manager?.full_name, icon: IconUserCheck },
-  ]
+  const [nextHoliday, setNextHoliday] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD, local
+      const { data } = await supabase
+        .from('holidays')
+        .select('id, kind, holiday_date, name, location')
+        .gte('holiday_date', today)
+        .order('holiday_date')
+      if (!alive || !data) return
+      let picks = null
+      if (profile?.id) {
+        const { data: pk } = await supabase
+          .from('optional_holiday_picks')
+          .select('holiday_id')
+          .eq('employee_id', profile.id)
+        picks = new Set((pk ?? []).map((r) => r.holiday_id))
+      }
+      const city = (profile?.location ?? '').split(',')[0].trim().toLowerCase()
+      const next = data.find((h) =>
+        h.kind === 'optional'
+          ? picks?.has(h.id)
+          : !city || String(h.location ?? '').toLowerCase().includes(city)
+      )
+      if (alive) setNextHoliday(next ?? null)
+    }
+    run()
+    return () => { alive = false }
+  }, [profile?.id, profile?.location])
+
+  const holidayOut = useMemo(() => {
+    if (!nextHoliday) return null
+    const d = new Date(`${nextHoliday.holiday_date}T00:00:00`)
+    const now = new Date(); now.setHours(0, 0, 0, 0)
+    const diff = Math.round((d - now) / 86400000)
+    return {
+      name: nextHoliday.name,
+      dateLabel: d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }).toUpperCase(),
+      when: diff === 0 ? 'TODAY' : diff === 1 ? 'TOMORROW' : `IN ${diff} DAYS`,
+      kind: nextHoliday.kind,
+    }
+  }, [nextHoliday])
 
   return (
     <div className="page">
       <header className="page-head">
-        <span className="eyebrow">↘ Dashboard · {profile?.location}</span>
+        <span className="eyebrow">Dashboard · {profile?.location}</span>
         <h1>Welcome, {firstName(profile?.full_name)}.</h1>
       </header>
 
-      {/* 1 · Employee overview */}
-      <section className="card brand-frame card--padded dash-overview">
-        <div className="dash-overview__who">
-          <span className="avatar avatar--lg">{profile?.initials}</span>
-          <div>
-            <h2>{profile?.full_name}</h2>
-            <div className="dash-role mono">{profile?.job_title} · {profile?.system_role?.toUpperCase()}</div>
-            <div className="dash-mail"><IconMail size={14} /> {profile?.email}</div>
-          </div>
-        </div>
-        <dl className="dash-fields">
-          {DETAILS.map(({ label, value, icon: Icon }) => (
-            <div className="dash-field" key={label}>
-              <dt><Icon size={14} /> {label}</dt>
-              <dd>{value ?? '—'}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+      {holidayOut && (
+        <aside className="hol-strip" aria-label="Upcoming holiday">
+          <IconSun size={19} />
+          <span className="eyebrow">Next holiday</span>
+          <b className="hol-strip__name">{holidayOut.name}</b>
+          <span className="hol-strip__meta mono">{holidayOut.dateLabel} · {holidayOut.kind.toUpperCase()}</span>
+          <span className="hol-strip__when mono">{holidayOut.when}</span>
+        </aside>
+      )}
 
-      {/* 2 · Quick actions */}
-      <section className="dash-actions" aria-label="Quick actions">
-        {ACTIONS.map((a) => (
-          <button key={a.num} className="card action-card brand-frame" onClick={() => navigate(a.to)}>
-            <div className="action-card__head">
-              <span className="eyebrow">↘ {a.num} / Action</span>
-              <IconArrowUpRight size={18} />
-            </div>
-            <a.icon className="action-card__icon" size={26} />
-            <div className="action-card__title">{a.title}</div>
-            <p className="action-card__text">{a.text}</p>
-            <span className="action-card__go">OPEN <IconArrowUpRight size={12} /></span>
-          </button>
-        ))}
-      </section>
-
-      {/* 3 · Leave balances */}
-      <section className="dash-balances">
+      {/* 1 · Leave balances + quick actions */}
+      <section className="dash-top">
         <div className="card card--padded brand-frame dash-balance__main">
           <div className="dash-balance__head">
-            <span className="eyebrow">↘ Annual Leave · Used vs Credited</span>
-            <span className="eyebrow eyebrow--ink">FIG. 03.00</span>
+            <span className="eyebrow">Annual Leave · Used vs Credited</span>
           </div>
 
           <div className="dash-balance__grid">
@@ -86,11 +98,9 @@ export default function Dashboard() {
             </div>
 
             <div className="dash-bars">
-              {balances.rows.map((r, i) => (
+              {balances.rows.map((r) => (
                 <div className="bar-row" key={r.key}>
-                  <span className="bar-row__label">
-                    {i + 1 < 10 ? `0${i + 1}` : i + 1} · {r.label}
-                  </span>
+                  <span className="bar-row__label">{r.label}</span>
                   <span className="bar-row__track">
                     <span
                       className="bar-row__fill"
@@ -109,13 +119,29 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <aside className="card card--padded support-panel">
-          <span className="eyebrow">↘ Support Centre</span>
+        <div className="dash-actions" aria-label="Quick actions">
+          {ACTIONS.filter((a) => canApprove(profile) || a.to !== '/leave-requests').map((a) => (
+            <button key={a.to} className="card action-card brand-frame" onClick={() => navigate(a.to)}>
+              <a.icon className="action-card__icon" size={26} />
+              <div className="action-card__title">{a.title}</div>
+              <p className="action-card__text">{a.text}</p>
+              <span className="action-card__go">OPEN</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* 2 · Support Centre — footer */}
+      <aside className="card card--padded support-panel support-panel--footer">
+        <div className="support-panel__body">
+          <span className="eyebrow">Support Centre</span>
           <div className="support-panel__title">Need a hand with time off?</div>
           <p>
             Policy clarifications, balance corrections, long-duration leave or missing credits —
             the People Success desk replies within one working day.
           </p>
+        </div>
+        <div className="support-panel__side">
           <ul className="support-panel__list mono">
             <li>SLA · 1 BUSINESS DAY</li>
             <li>CHANNEL · PORTAL + EMAIL</li>
@@ -127,8 +153,8 @@ export default function Dashboard() {
           >
             <IconLifebuoy size={16} /> Help desk
           </button>
-        </aside>
-      </section>
+        </div>
+      </aside>
     </div>
   )
 }

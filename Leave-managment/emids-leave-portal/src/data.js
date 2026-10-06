@@ -27,3 +27,6 @@ export const businessDaysBetween = (from, to) => {
   }
   return count
 }
+
+export const canApprove = (profile) =>
+  profile?.system_role === 'manager' || profile?.system_role === 'admin'

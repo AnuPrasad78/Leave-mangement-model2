@@ -5,17 +5,17 @@ import logoLight from '../assets/emids-logo-light.svg'
 
 const FEATURES = [
   {
-    num: '01',
+    num: '1',
     title: 'Real-time leave balances',
     text: 'Annual, contingency and comp-off pools — credit, utilised and available, always current.',
   },
   {
-    num: '02',
+    num: '2',
     title: 'One-click approvals',
     text: 'Review team time off in a single queue. Approve or reject with a full audit trail.',
   },
   {
-    num: '03',
+    num: '3',
     title: 'Holiday planning built in',
     text: 'Fixed and optional holiday calendars across Emids locations. Pick your three, early.',
   },
@@ -67,14 +67,13 @@ export default function Login() {
           </div>
           <div className="login__plate-foot">
             <span>EMIDS · ABSENCE SUITE</span>
-            <span>FIG. 01.00 · SSO ENTRY</span>
           </div>
         </div>
       </section>
 
       <section className="login__form-side">
         <div className="login__form">
-          <span className="eyebrow">↘ Employee Sign-in</span>
+          <span className="eyebrow">Employee Sign-in</span>
           <h1>Welcome back.</h1>
           <p className="login__lede">
             Sign in with your Emids credentials. Accounts are provisioned by

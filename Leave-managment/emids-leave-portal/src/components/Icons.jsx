@@ -121,10 +121,21 @@ export const IconUserCheck = (p) => (
   <Svg {...p}><circle cx="9" cy="7" r="4" /><path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2M15.5 14.5l2 2 3.5 -3.8" /></Svg>
 )
 
+export const IconUser = (p) => (
+  <Svg {...p}><circle cx="12" cy="7.5" r="3.5" /><path d="M5 20.5c1-3.2 3.7-4.8 7-4.8s6 1.6 7 4.8" /></Svg>
+)
+
 export const IconMapPin = (p) => (
   <Svg {...p}><path d="M12 11m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0M12 21c-4 -4 -7.5 -7.2 -7.5 -11a7.5 7.5 0 0 1 15 0c0 3.8 -3.5 7 -7.5 11" /></Svg>
 )
 
 export const IconPlus = (p) => (
   <Svg {...p}><path d="M12 5v14M5 12h14" /></Svg>
+)
+
+export const IconSparkles = (p) => (
+  <Svg {...p}>
+    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
+    <path d="M19 15l0.7 1.8 1.8 0.7 -1.8 0.7 -0.7 1.8 -0.7 -1.8 -1.8 -0.7 1.8 -0.7 0.7 -1.8z" />
+  </Svg>
 )
