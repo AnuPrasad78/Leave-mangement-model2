@@ -1,40 +1,63 @@
 import { useMemo, useState } from 'react'
-import { fmtDate } from '../data.js'
+import { Link } from 'react-router-dom'
+import { fmtDate } from '../utils/dates'
 import { useAuth } from '../store/AuthContext'
-import { StatusPill, ConfirmModal } from '../components/UI'
+import { STATUSES } from '../constants'
+import { PageHead, PanelTable, StatusPill, ConfirmModal } from '../components/ui'
 import { IconBan } from '../components/Icons'
 
+// Short strip labels for the common leave types ("Leave" covers everything else)
+const QUICK_LABELS = {
+  'Compensatory Off': 'Comp-Off',
+  'Work From Home': 'WFH',
+  'Business Travel': 'Business Travel',
+  'Paternity Leave': 'Paternity',
+}
+
 export default function LeaveDetails() {
-  const { mine, cancelMine } = useAuth()
+  const { mine, cancelMine, CURRENT_YEAR } = useAuth()
   const [confirming, setConfirming] = useState(null)
 
-  const counts = useMemo(() => {
-    let leave = 0, comp = 0, wfh = 0, travel = 0, paternity = 0
+  const strip = useMemo(() => {
+    const byType = {}
+    let rest = 0
     mine.forEach((r) => {
-      if (r.type === 'Compensatory Off') comp++
-      else if (r.type === 'Work From Home') wfh++
-      else if (r.type === 'Business Travel') travel++
-      else if (r.type === 'Paternity Leave') paternity++
-      else leave++
+      if (Object.prototype.hasOwnProperty.call(QUICK_LABELS, r.type)) byType[r.type] = (byType[r.type] ?? 0) + 1
+      else rest++
     })
-    return { leave, comp, wfh, travel, paternity }
+    return [
+      ['Leave', rest],
+      ...Object.entries(QUICK_LABELS).map(([type, label]) => [label, byType[type] ?? 0]),
+    ]
   }, [mine])
 
-  const strip = [
-    ['Leave', counts.leave],
-    ['Comp-Off', counts.comp],
-    ['WFH', counts.wfh],
-    ['Business Travel', counts.travel],
-    ['Paternity', counts.paternity],
+  const columns = [
+    { label: 'Ref', cellClass: 'req-id', cell: (r) => r.id },
+    { label: 'Type', cellClass: 'nowrap', cell: (r) => r.type },
+    { label: 'From', cellClass: 'nowrap', cell: (r) => fmtDate(r.from) },
+    { label: 'To', cellClass: 'nowrap', cell: (r) => fmtDate(r.to) },
+    { label: 'Days', cellClass: 'nowrap', cell: (r) => r.days },
+    { label: 'Reason', maxWidth: 260, cell: (r) => r.reason },
+    { label: 'Requested', cellClass: 'nowrap', cell: (r) => fmtDate(r.requestedOn) },
+    { label: 'Status', cell: (r) => <StatusPill status={r.status} /> },
+    {
+      label: 'Cancel',
+      cell: (r) =>
+        r.status === STATUSES.Pending ? (
+          <button className="icon-act" title="Cancel request" onClick={() => setConfirming(r.id)}>
+            <IconBan size={15} />
+          </button>
+        ) : (
+          <span className="muted">—</span>
+        ),
+    },
   ]
 
   return (
     <div className="page">
-      <header className="page-head">
-        <span className="eyebrow">My Requests</span>
-        <h1>Leave details.</h1>
+      <PageHead eyebrow="My Requests" title="Leave details.">
         <p>Everything you have raised in the current leave year — newest first.</p>
-      </header>
+      </PageHead>
 
       <section className="strip" aria-label="Summary">
         {strip.map(([label, num]) => (
@@ -47,47 +70,18 @@ export default function LeaveDetails() {
         ))}
       </section>
 
-      <div className="card">
-        <div className="hl-panel-head">
-          <h3>Request History</h3>
-          <span className="hl-count">{mine.length} ENTRIES · LV-FY2026</span>
-        </div>
-        {mine.length === 0 ? (
-          <div className="table__empty">No requests on file. (<a href="/apply-leave">Raise one</a>)</div>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Ref</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th>
-                <th>Requested</th><th>Status</th><th>Cancel</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mine.map((r) => (
-                <tr key={r.id}>
-                  <td className="req-id">{r.id}</td>
-                  <td className="nowrap">{r.type}</td>
-                  <td className="nowrap">{fmtDate(r.from)}</td>
-                  <td className="nowrap">{fmtDate(r.to)}</td>
-                  <td className="nowrap">{r.days}</td>
-                  <td style={{ maxWidth: 260 }}>{r.reason}</td>
-                  <td className="nowrap">{fmtDate(r.requestedOn)}</td>
-                  <td><StatusPill status={r.status} /></td>
-                  <td>
-                    {r.status === 'Pending' ? (
-                      <button className="icon-act" title="Cancel request" onClick={() => setConfirming(r.id)}>
-                        <IconBan size={15} />
-                      </button>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <PanelTable
+        title="Request History"
+        count={`${mine.length} ENTRIES · LV-FY${CURRENT_YEAR}`}
+        columns={columns}
+        rows={mine}
+        rowKey={(r) => r.id}
+        emptyBlock={
+          <div className="table__empty">
+            No requests on file. (<Link to="/apply-leave">Raise one</Link>)
+          </div>
+        }
+      />
 
       {confirming && (
         <ConfirmModal

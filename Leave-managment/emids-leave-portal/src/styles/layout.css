@@ -39,7 +39,7 @@
   border: 1.5px solid var(--surface);
 }
 
-.header__logo { display: inline-flex; align-items: center; }
+.header__logo { display: inline-flex; align-items: center; background: none; border: 0; padding: 0; cursor: pointer; }
 .header__logo img { height: 17px; display: block; }
 
 .header__title {

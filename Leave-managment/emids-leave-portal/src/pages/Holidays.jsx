@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { dayName } from '../data.js'
+import { dayName } from '../utils/dates'
 import { legacyHolidayData } from '../data/legacyHolidayData'
 import { useAuth } from '../store/AuthContext'
-import { supabase } from '../lib/supabase'
-
-const LEGACY_KEY = 'emids-optional-holidays'
-const MAX_PICKS = 3
+import { TOAST_KIND, MAX_PICKS } from '../constants'
+import { Chip, Field, PageHead, PanelTable } from '../components/ui'
+import { fetchAllHolidays, fetchOptionalPicks, addOptionalPick, removeOptionalPick, isPickCapError } from '../services/holidays'
+import { migrateLegacyPicks } from '../services/legacyMigration'
 
 export default function Holidays() {
   const { setToast, profile } = useAuth()
@@ -17,83 +17,34 @@ export default function Holidays() {
 
   useEffect(() => {
     async function run() {
-      const { data } = await supabase
-        .from('holidays')
-        .select('id, country, location, year, kind, holiday_date, name')
-        .order('holiday_date')
-      setAll(data ?? [])
+      const { rows, error } = await fetchAllHolidays()
+      if (error) setToast(error.userMessage, TOAST_KIND.Error)
+      setAll(rows)
     }
     run()
-  }, [])
+  }, [setToast])
 
   useEffect(() => {
     if (!profile?.id) return
     async function run() {
-      const { data } = await supabase
-        .from('optional_holiday_picks')
-        .select('holiday_id')
-        .eq('employee_id', profile.id)
-      setPicks(new Set((data ?? []).map((r) => r.holiday_id)))
+      const { holidayIds, error } = await fetchOptionalPicks(profile.id)
+      if (error) setToast(error.userMessage, TOAST_KIND.Error)
+      setPicks(new Set(holidayIds))
     }
     run()
-  }, [profile])
+  }, [profile, setToast])
 
   // One-time migration: old localStorage emids-optional-holidays stored per-cell
   // arrays of ORIGINAL-array-order indices. Resolve them to holiday ids and insert.
+  // Only re-set picks when rows were actually migrated, otherwise this effect
+  // re-fires on every picks update (new Set identity) and loops forever.
   useEffect(() => {
     if (!profile?.id || !all || picks === null) return
-    const raw = localStorage.getItem(LEGACY_KEY)
-    if (!raw) return
-
-    localStorage.removeItem(LEGACY_KEY)
-    let mapping = {}
-    try { mapping = JSON.parse(raw) || {} } catch { return }
-    if (!Object.keys(mapping).length) return
-
-    const meta = new Map(all.map((h) => [h.id, h]))
-    const perCell = {} // 'country|year' → picked count already in DB
-    picks.forEach((id) => {
-      const m = meta.get(id)
-      if (m) {
-        const k = `${m.country}|${m.year}`
-        perCell[k] = (perCell[k] ?? 0) + 1
+    migrateLegacyPicks({ employeeId: profile.id, all, pickedIds: [...picks], legacyData: legacyHolidayData }).then(
+      ({ inserted, pickedIds }) => {
+        if (inserted) setPicks(new Set(pickedIds))
       }
-    })
-
-    const seen = new Set()
-    const toInsert = []
-    Object.entries(mapping).forEach(([cellKey, idxs]) => {
-      const [cn, yr] = cellKey.split('|')
-      const list = legacyHolidayData[cn]?.optional?.[Number(yr)] ?? []
-      const budget = MAX_PICKS - (perCell[`${cn}|${Number(yr)}`] ?? 0)
-      let used = 0
-      ;(Array.isArray(idxs) ? idxs : []).forEach((i) => {
-        if (used >= budget) return
-        const h = list[Number(i)]
-        if (!h) return
-        const row = all.find(
-          (x) => x.country === cn && x.year === Number(yr) && x.kind === 'optional'
-            && x.holiday_date === h.date && x.name === h.name
-        )
-        if (row && !seen.has(row.id)) {
-          seen.add(row.id)
-          toInsert.push({ employee_id: profile.id, holiday_id: row.id })
-          used++
-        }
-      })
-    })
-
-    if (toInsert.length) {
-      (async () => {
-        const { error } = await supabase.from('optional_holiday_picks').insert(toInsert)
-        if (error) console.warn('Pick migration partial:', error.message)
-        const { data: fresh } = await supabase
-          .from('optional_holiday_picks')
-          .select('holiday_id')
-          .eq('employee_id', profile.id)
-        setPicks(new Set((fresh ?? []).map((r) => r.holiday_id)))
-      })()
-    }
+    )
   }, [profile, all, picks])
 
   const countries = useMemo(() => [...new Set((all ?? []).map((h) => h.country))], [all])
@@ -108,10 +59,10 @@ export default function Holidays() {
 
   useEffect(() => {
     if (locations.length && !locations.includes(location)) setLocation(locations[0])
-  }, [locations]) // eslint-disable-line
+  }, [location, locations])
   useEffect(() => {
     if (years.length && !years.includes(Number(year))) setYear(Number(years[0]))
-  }, [years]) // eslint-disable-line
+  }, [year, years])
 
   const fixed = useMemo(
     () => (all ?? []).filter((h) => h.country === country && h.location === location && h.kind === 'fixed' && h.year === Number(year)),
@@ -128,148 +79,107 @@ export default function Holidays() {
 
   const refetchPicks = async () => {
     if (!profile?.id) return
-    const { data } = await supabase
-      .from('optional_holiday_picks')
-      .select('holiday_id')
-      .eq('employee_id', profile.id)
-    setPicks(new Set((data ?? []).map((r) => r.holiday_id)))
+    const { holidayIds } = await fetchOptionalPicks(profile.id)
+    setPicks(new Set(holidayIds))
   }
 
   const toggle = async (h) => {
     if (!profile?.id || picks === null) return
     if (picks.has(h.id)) {
       setPicks(new Set([...picks].filter((id) => id !== h.id)))
-      const { error } = await supabase
-        .from('optional_holiday_picks')
-        .delete()
-        .eq('employee_id', profile.id)
-        .eq('holiday_id', h.id)
+      const { error } = await removeOptionalPick(profile.id, h.id)
       if (error) {
-        setToast(error.message, 'red')
+        setToast(error.userMessage, TOAST_KIND.Error)
         refetchPicks()
       }
       return
     }
     if (chosen.length >= MAX_PICKS) {
-      setToast(`You can choose only ${MAX_PICKS} optional holidays`, 'red')
+      setToast(`You can choose only ${MAX_PICKS} optional holidays`, TOAST_KIND.Error)
       return
     }
-    const { error } = await supabase
-      .from('optional_holiday_picks')
-      .insert({ employee_id: profile.id, holiday_id: h.id })
+    const { error } = await addOptionalPick(profile.id, h.id)
     if (error) {
-      if (/3 optional/.test(error.message)) setToast(`You can choose only ${MAX_PICKS} optional holidays`, 'red')
-      else setToast(error.message, 'red')
+      if (isPickCapError(error)) setToast(`You can choose only ${MAX_PICKS} optional holidays`, TOAST_KIND.Error)
+      else setToast(error.userMessage, TOAST_KIND.Error)
       refetchPicks()
       return
     }
     setPicks(new Set([...picks, h.id]))
   }
 
+  const loading = all === null
+
+  const fixedColumns = [
+    { label: 'Date', cellClass: 'nowrap', cell: (h) => <span className="hl-date"><b>{h.holiday_date.slice(5)}</b><span>{h.holiday_date.slice(0, 4)}</span></span> },
+    { label: 'Day', cellClass: 'nowrap mono', cell: (h) => dayName(h.holiday_date) },
+    { label: 'Holiday', cell: (h) => h.name },
+  ]
+  const optionalColumns = [
+    {
+      label: 'Pick',
+      width: 44,
+      cell: (h) => {
+        const isPicked = picks?.has(h.id)
+        return (
+          <Chip className="opt-choice" isOn={isPicked} aria-label={`Choose ${h.name}`} onClick={() => toggle(h)}>
+            ✓
+          </Chip>
+        )
+      },
+    },
+    ...fixedColumns,
+  ]
+
   return (
     <div className="page">
-      <header className="page-head">
-        <span className="eyebrow">Company Calendar</span>
-        <h1>Holiday calendar.</h1>
+      <PageHead eyebrow="Company Calendar" title="Holiday calendar.">
         <p>
           Compare locations before you plan. Optional holidays are employee-selected —
           pick three for the year, they switch to paid leave on your request.
         </p>
-      </header>
+      </PageHead>
 
       <div className="hl-filters">
-        <label className="field">
-          <span className="field__label">Country</span>
+        <Field label="Country" as="div">
           <select className="select" value={country} onChange={(e) => setCountry(e.target.value)}>
             {countries.map((c) => <option key={c}>{c}</option>)}
           </select>
-        </label>
-        <label className="field">
-          <span className="field__label">Location</span>
+        </Field>
+        <Field label="Location" as="div">
           <select className="select" value={location} onChange={(e) => setLocation(e.target.value)}>
             {locations.map((l) => <option key={l}>{l}</option>)}
           </select>
-        </label>
-        <label className="field">
-          <span className="field__label">Year</span>
+        </Field>
+        <Field label="Year" as="div">
           <select className="select" value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {years.map((y) => <option key={y}>{y}</option>)}
           </select>
-        </label>
+        </Field>
         <div className="hl-meter" style={{ marginLeft: 'auto' }}>
-          CHOSEN <b>{picks === null ? '…' : chosen.length}</b> / 3
+          CHOSEN <b>{picks === null ? '…' : chosen.length}</b> / {MAX_PICKS}
         </div>
       </div>
 
       <div className="hl-cols">
-        <div className="card">
-          <div className="hl-panel-head">
-            <h3>Fixed holidays · {location}</h3>
-            <span className="hl-count">{fixed.length} DAYS OFF · PAID</span>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table">
-              <thead>
-                <tr><th>Date</th><th>Day</th><th>Holiday</th></tr>
-              </thead>
-              <tbody>
-                {fixed.map((h) => (
-                  <tr key={h.id}>
-                    <td className="nowrap">
-                      <span className="hl-date"><b>{h.holiday_date.slice(5)}</b><span>{h.holiday_date.slice(0, 4)}</span></span>
-                    </td>
-                    <td className="nowrap mono">{dayName(h.holiday_date)}</td>
-                    <td>{h.name}</td>
-                  </tr>
-                ))}
-                {fixed.length === 0 && (
-                  <tr><td colSpan={3} className="table__empty">{all === null ? 'Loading calendar…' : 'No holidays on file.'}</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <PanelTable
+          title={`Fixed holidays · ${location}`}
+          count={`${fixed.length} DAYS OFF · PAID`}
+          columns={fixedColumns}
+          rows={fixed}
+          rowKey={(h) => h.id}
+          empty={loading ? 'Loading calendar…' : 'No holidays on file.'}
+        />
 
-        <div className="card">
-          <div className="hl-panel-head">
-            <h3>Optional holidays · Choose {MAX_PICKS} out of {optional.length}</h3>
-            <span className="hl-count">{chosen.length} / {MAX_PICKS} SELECTED</span>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table">
-              <thead>
-                <tr><th style={{ width: 44 }}>Pick</th><th>Date</th><th>Day</th><th>Holiday</th></tr>
-              </thead>
-              <tbody>
-                {optional.map((h) => {
-                  const isPicked = picks?.has(h.id)
-                  return (
-                    <tr key={h.id} className={isPicked ? 'optional-row is-chosen' : 'optional-row'}>
-                      <td>
-                        <button
-                          className={`opt-choice ${isPicked ? 'is-on' : ''}`}
-                          aria-pressed={isPicked}
-                          aria-label={`Choose ${h.name}`}
-                          onClick={() => toggle(h)}
-                        >
-                          ✓
-                        </button>
-                      </td>
-                      <td className="nowrap">
-                        <span className="hl-date"><b>{h.holiday_date.slice(5)}</b><span>{h.holiday_date.slice(0, 4)}</span></span>
-                      </td>
-                      <td className="nowrap mono">{dayName(h.holiday_date)}</td>
-                      <td>{h.name}</td>
-                    </tr>
-                  )
-                })}
-                {optional.length === 0 && (
-                  <tr><td colSpan={4} className="table__empty">{all === null ? 'Loading calendar…' : 'No holidays on file.'}</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <PanelTable
+          title={`Optional holidays · Choose ${MAX_PICKS} out of ${optional.length}`}
+          count={`${chosen.length} / ${MAX_PICKS} SELECTED`}
+          columns={optionalColumns}
+          rows={optional}
+          rowKey={(h) => h.id}
+          rowClass={(h) => (picks?.has(h.id) ? 'optional-row is-chosen' : 'optional-row')}
+          empty={loading ? 'Loading calendar…' : 'No holidays on file.'}
+        />
       </div>
     </div>
   )

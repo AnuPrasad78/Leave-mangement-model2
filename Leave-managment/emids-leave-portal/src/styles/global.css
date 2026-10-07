@@ -20,8 +20,6 @@
   --red: #e04f4f;
   --red-deep: #b83838;
   --red-wash: #fdecec;
-  --mauve: #b89dcb;
-  --yellow: #f2c94c;
   --font: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, sans-serif; /* label voice — same family, tabular numerals for data */
   --ease-resolve: cubic-bezier(0.2, 0, 0, 1);
@@ -103,11 +101,7 @@ a { color: var(--teal-deep); }
 .btn--danger { background: var(--red); color: #fff; }
 .btn--danger:hover:not(:disabled) { background: var(--red-deep); }
 
-.btn--ghost-danger { background: transparent; color: var(--red-deep); border-color: var(--red); }
-.btn--ghost-danger:hover:not(:disabled) { background: var(--red-wash); }
 
-.btn--approve { background: var(--green); color: #0e0e0e; }
-.btn--approve:hover:not(:disabled) { background: #38a389; }
 
 /* ---- forms ---- */
 .field { display: flex; flex-direction: column; gap: 7px; }
@@ -222,10 +216,6 @@ a { color: var(--teal-deep); }
   border-top-color: #ffffff;
   animation: spin 0.7s linear infinite;
   display: inline-block;
-}
-.spinner--teal {
-  border-color: rgba(71, 162, 176, 0.25);
-  border-top-color: var(--teal-deep);
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 

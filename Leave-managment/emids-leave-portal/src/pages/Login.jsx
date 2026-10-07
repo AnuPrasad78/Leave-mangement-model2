@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/AuthContext'
+import { Button, Field } from '../components/ui'
 import logoLight from '../assets/emids-logo-light.svg'
 
 const FEATURES = [
@@ -81,34 +82,32 @@ export default function Login() {
           </p>
 
           <form className="login__fields" onSubmit={handleSubmit}>
-            <label className="field">
-              <span className="field__label">Corporate Email <span className="req">*</span></span>
+            <Field label='Corporate Email' required htmlFor='login-email'>
               <input
-                className="input"
-                type="email"
+                id='login-email'
+                className='input'
+                type='email'
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@emids.com"
-                autoComplete="email"
+                placeholder='name@emids.com'
+                autoComplete='email'
                 required
               />
-            </label>
-            <label className="field">
-              <span className="field__label">Password <span className="req">*</span></span>
+            </Field>
+            <Field label='Password' required error={error} htmlFor='login-password'>
               <input
-                className="input"
-                type="password"
+                id='login-password'
+                className='input'
+                type='password'
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
+                autoComplete='current-password'
                 required
               />
-            </label>
-            {error && <span className="muted mono">{error}</span>}
-            <button className="btn btn--primary btn--sso" type="submit" disabled={busy}>
-              {busy ? <span className="spinner" /> : null}
-              {busy ? 'Verifying credentials' : 'Sign in'}
-            </button>
+            </Field>
+            <Button className='btn--sso' type='submit' busy={busy} busyLabel='Verifying credentials'>
+              Sign in
+            </Button>
           </form>
 
           <p className="login__note">

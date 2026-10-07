@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
-import { businessDaysBetween } from '../data.js'
-import { useAuth } from '../store/AuthContext'
 import { useNavigate } from 'react-router-dom'
-
-const MODES = ['Full Day', 'First Half', 'Second Half']
+import { businessDaysBetween, todayISO } from '../utils/dates'
+import { balanceValue } from '../utils/balances'
+import { useAuth } from '../store/AuthContext'
+import { Button, Chip, Field, PageHead, SegmentedControl } from '../components/ui'
+import { MODES } from '../constants'
 
 export default function ApplyLeave() {
   const navigate = useNavigate()
@@ -11,7 +12,7 @@ export default function ApplyLeave() {
   const [type, setType] = useState('Paid Time Off')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
-  const [mode, setMode] = useState('Full Day')
+  const [mode, setMode] = useState(MODES.Full)
   const [reason, setReason] = useState('')
   const [errors, setErrors] = useState({})
 
@@ -19,11 +20,11 @@ export default function ApplyLeave() {
     if (!from || !to) return null
     if (to < from) return null
     const n = businessDaysBetween(from, to)
-    if (mode !== 'Full Day') return Math.max(0.5, n * 0.5)
+    if (mode !== MODES.Full) return Math.max(0.5, n * 0.5)
     return n
   }, [from, to, mode])
 
-  const available = balances ? balances.totalCredited - balances.utilized : null
+  const available = balances ? balanceValue(balances, 'available') : null
   const remaining = days != null && available != null ? available - days : null
   const fmt = (v) => (v == null ? '' : Number.isInteger(v) ? String(v) : v.toFixed(1))
 
@@ -40,7 +41,7 @@ export default function ApplyLeave() {
     setErrors(errs)
     if (Object.keys(errs).length || !days) return
     setSubmitting(true)
-    const id = await addMine({ type, from, to, days, mode, reason: reason.trim(), requestedOn: new Date().toISOString().slice(0, 10) })
+    const id = await addMine({ type, from, to, days, mode, reason: reason.trim(), requestedOn: todayISO() })
     setSubmitting(false)
     if (!id) return
     setToast(`${type} request submitted · ${days} day(s)`)
@@ -49,67 +50,43 @@ export default function ApplyLeave() {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <span className="eyebrow">New Request</span>
-        <h1>Request time off.</h1>
-      </header>
+      <PageHead eyebrow="New Request" title="Request time off." />
 
       <form className="card form-card" onSubmit={submit} noValidate>
         <div className="form-body">
-          <div className="field">
-            <span className="field__label">Leave Type <span className="req">*</span></span>
+          <Field label="Leave Type" required as="div" error={errors.type}>
             <div className="chipbox">
               {leaveTypes.map((t) => (
-                <button
-                  type="button"
-                  key={t}
-                  className={`chip ${type === t ? 'is-on' : ''}`}
-                  onClick={() => setType(t)}
-                >
+                <Chip key={t} isOn={type === t} onClick={() => setType(t)}>
                   {t}
-                </button>
+                </Chip>
               ))}
             </div>
-            {errors.type && <span className="muted mono">{errors.type}</span>}
-          </div>
+          </Field>
 
           <div className="form-row form-row--type">
-            <label className="field">
-              <span className="field__label">From Date <span className="req">*</span></span>
+            <Field label="From Date" required error={errors.from} htmlFor="lv-from">
               <input
+                id="lv-from"
                 className="input"
                 type="date"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
               />
-              {errors.from && <span className="muted mono">{errors.from}</span>}
-            </label>
-            <label className="field">
-              <span className="field__label">To Date <span className="req">*</span></span>
+            </Field>
+            <Field label="To Date" required error={errors.to} htmlFor="lv-to">
               <input
+                id="lv-to"
                 className="input"
                 type="date"
                 value={to}
                 min={from || undefined}
                 onChange={(e) => setTo(e.target.value)}
               />
-              {errors.to && <span className="muted mono">{errors.to}</span>}
-            </label>
-            <label className="field">
-              <span className="field__label">Day Mode <span className="req">*</span></span>
-              <div className="seg" role="group" aria-label="Day mode">
-                {MODES.map((m) => (
-                  <button
-                    type="button"
-                    key={m}
-                    className={mode === m ? 'is-on' : ''}
-                    onClick={() => setMode(m)}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </label>
+            </Field>
+            <Field label="Day Mode" required as="div">
+              <SegmentedControl value={mode} options={[MODES.Full, MODES.FirstHalf, MODES.SecondHalf]} onChange={setMode} ariaLabel="Day mode" />
+            </Field>
             <div className="field">
               <span className="field__label">Number of days</span>
               <div className="form-days">
@@ -123,26 +100,25 @@ export default function ApplyLeave() {
             </div>
           </div>
 
-          <label className="field">
-            <span className="field__label">Reason <span className="req">*</span></span>
+          <Field label="Reason" required error={errors.reason} htmlFor="lv-reason">
             <textarea
+              id="lv-reason"
               className="textarea"
               placeholder="Approver reads this. Where you will be, coverage plans, anything the team should know."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               maxLength={500}
             />
-            {errors.reason && <span className="muted mono">{errors.reason}</span>}
-          </label>
+          </Field>
         </div>
 
         <div className="form-actions">
-          <button type="button" className="btn btn--ghost" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" onClick={() => navigate('/dashboard')}>
             Cancel
-          </button>
-          <button type="submit" className="btn btn--primary" disabled={submitting}>
-            {submitting ? 'Submitting…' : 'Submit Request'}
-          </button>
+          </Button>
+          <Button type="submit" busy={submitting} busyLabel="Submitting…">
+            Submit Request
+          </Button>
         </div>
       </form>
     </div>

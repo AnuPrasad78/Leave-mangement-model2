@@ -27,6 +27,8 @@ const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
 const USERS = [
   { email: 'sai.nithinreddy@emids.com', full_name: 'Vootkuri Sai Nithin Reddy' },
   { email: 'sandeep.venkateshkamath@emids.com', full_name: 'Sandeep Venkatesh Kamath' },
+  // Employee-role account used by the e2e suite (reports to Sai per seed.sql)
+  { email: 'vikram.deshmukh@emids.com', full_name: 'Vikram Deshmukh' },
 ]
 
 for (const u of USERS) {
@@ -37,10 +39,13 @@ for (const u of USERS) {
     user_metadata: { full_name: u.full_name },
   })
   if (error) {
-    if (/already|registered|duplicate/i.test(error.message)) {
+    // Real "already exists" codes: user_already_exists / email_exists.
+    // Never match on error.message — e.g. "Unregi*stered* API key" used to
+    // pass the old regex and incorrectly report the user as seeded.
+    if (error.code === 'user_already_exists' || error.code === 'email_exists') {
       console.log(`- ${u.email} exists, skipped`)
     } else {
-      console.error(`x ${u.email}: ${error.message}`)
+      console.error(`x ${u.email} (${error.code || 'no-code'}): ${error.message}`)
       process.exit(1)
     }
   } else {

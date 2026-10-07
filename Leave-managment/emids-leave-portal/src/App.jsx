@@ -1,8 +1,9 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './store/AuthContext'
-import { canApprove } from './data'
+import { canApprove } from './utils/roles'
+import ErrorBoundary from './utils/ErrorBoundary'
 import Layout from './components/Layout'
-import { Toast } from './components/UI'
+import { Toast } from './components/ui'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -33,7 +34,7 @@ function ManagerOnly({ children }) {
 
 export default function App() {
   return (
-    <>
+    <ErrorBoundary>
       <Toast />
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -48,6 +49,6 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </ErrorBoundary>
   )
 }

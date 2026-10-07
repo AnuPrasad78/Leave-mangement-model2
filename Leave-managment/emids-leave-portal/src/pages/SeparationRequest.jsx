@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { separationReasons } from '../data.js'
+import { separationReasons, TOAST_KIND } from '../constants'
+import { todayISO } from '../utils/dates'
 import { useAuth } from '../store/AuthContext'
-import { supabase } from '../lib/supabase'
-import { WarnBanner, ConfirmModal } from '../components/UI'
+import { createSeparationRequest } from '../services/separations'
+import { Button, ConfirmModal, Field, PageHead, WarnBanner } from '../components/ui'
 
 export default function SeparationRequest() {
   const navigate = useNavigate()
@@ -16,7 +17,7 @@ export default function SeparationRequest() {
 
   const submit = () => {
     const errs = {}
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayISO()
     if (!lwd) errs.lwd = 'Pick your proposed last working day.'
     if (lwd && lwd < today) errs.lwd = 'Last working day must be in the future.'
     if (!reason) errs.reason = 'Select a reason for separation.'
@@ -27,16 +28,14 @@ export default function SeparationRequest() {
 
   const confirmed = async () => {
     setConfirming(false)
-    const { error } = await supabase
-      .from('separation_requests')
-      .insert({
-        employee_id: profile?.id,
-        last_working_day: lwd,
-        reason,
-        remarks: remarks.trim() ? remarks.trim() : null,
-      })
+    const { error } = await createSeparationRequest({
+      employee_id: profile?.id,
+      last_working_day: lwd,
+      reason,
+      remarks: remarks.trim() ? remarks.trim() : null,
+    })
     if (error) {
-      setToast(error.message, 'red')
+      setToast(error.userMessage, TOAST_KIND.Error)
       return
     }
     setToast('Separation request raised · HR notified')
@@ -45,11 +44,9 @@ export default function SeparationRequest() {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <span className="eyebrow" style={{ color: 'var(--red-deep)' }}>Offboarding</span>
-        <h1>Separation request.</h1>
+      <PageHead eyebrow="Offboarding" title="Separation request." accent>
         <p>Raise your intent to leave Emids. HR takes it from there — notice period, exit checklist, final settlement.</p>
-      </header>
+      </PageHead>
 
       <div className="card sep-card">
         <div className="sep-bar" />
@@ -62,42 +59,39 @@ export default function SeparationRequest() {
           </WarnBanner>
 
           <div className="form-row form-row--2">
-            <label className="field">
-              <span className="field__label">Proposed Last Working Day <span className="req">*</span></span>
+            <Field label="Proposed Last Working Day" required htmlFor="sep-lwd" error={errors.lwd}>
               <input
+                id="sep-lwd"
                 className="input"
                 type="date"
                 value={lwd}
-                min={new Date().toISOString().slice(0, 10)}
+                min={todayISO()}
                 onChange={(e) => setLwd(e.target.value)}
               />
-              {errors.lwd && <span className="mono muted">{errors.lwd}</span>}
-            </label>
-            <label className="field">
-              <span className="field__label">Reason for Separation <span className="req">*</span></span>
-              <select className="select" value={reason} onChange={(e) => setReason(e.target.value)}>
+            </Field>
+            <Field label="Reason for Separation" required htmlFor="sep-reason" error={errors.reason}>
+              <select id="sep-reason" className="select" value={reason} onChange={(e) => setReason(e.target.value)}>
                 <option value="">Select a reason…</option>
                 {separationReasons.map((r) => <option key={r}>{r}</option>)}
               </select>
-              {errors.reason && <span className="mono muted">{errors.reason}</span>}
-            </label>
+            </Field>
           </div>
 
-          <label className="field">
-            <span className="field__label">Remarks</span>
+          <Field label="Remarks" htmlFor="sep-remarks">
             <textarea
+              id="sep-remarks"
               className="textarea"
               placeholder="Optional — anything the exit team should know: knowledge-transfer owners, asset returns, relocation timelines."
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               maxLength={800}
             />
-          </label>
+          </Field>
         </div>
 
         <div className="form-actions">
-          <button className="btn btn--ghost" onClick={() => navigate('/dashboard')}>Cancel</button>
-          <button className="btn btn--danger" onClick={submit}>Submit Separation Request</button>
+          <Button variant="ghost" onClick={() => navigate('/dashboard')}>Cancel</Button>
+          <Button variant="danger" onClick={submit}>Submit Separation Request</Button>
         </div>
       </div>
 

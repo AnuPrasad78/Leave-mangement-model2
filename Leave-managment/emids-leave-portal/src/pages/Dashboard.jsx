@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/AuthContext'
-import { canApprove } from '../data'
-import { Donut } from '../components/UI'
-import { supabase } from '../lib/supabase'
+import { TOAST_KIND } from '../constants'
+import { canApprove } from '../utils/roles'
+import { todayISO } from '../utils/dates'
+import { EMPTY_BALANCES } from '../store/mappings'
+import { Button, Donut, PageHead } from '../components/ui'
+import { fetchUpcomingHolidays, fetchOptionalPicks } from '../services/holidays'
 import {
   IconCalendarPlus, IconFileText, IconClipboardCheck, IconLifebuoy, IconSun,
 } from '../components/Icons'
@@ -20,30 +23,24 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { setToast, profile, balances: fetched } = useAuth()
 
-  const balances = fetched ?? { totalCredited: 0, utilized: 0, rows: [] }
+  const balances = fetched ?? EMPTY_BALANCES
 
   const [nextHoliday, setNextHoliday] = useState(null)
 
   useEffect(() => {
     let alive = true
     async function run() {
-      const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD, local
-      const { data } = await supabase
-        .from('holidays')
-        .select('id, kind, holiday_date, name, location')
-        .gte('holiday_date', today)
-        .order('holiday_date')
-      if (!alive || !data) return
+      const { rows, error } = await fetchUpcomingHolidays(todayISO())
+      if (error) setToast(error.userMessage, TOAST_KIND.Error)
+      if (!alive || !rows.length) return
       let picks = null
       if (profile?.id) {
-        const { data: pk } = await supabase
-          .from('optional_holiday_picks')
-          .select('holiday_id')
-          .eq('employee_id', profile.id)
-        picks = new Set((pk ?? []).map((r) => r.holiday_id))
+        const { holidayIds } = await fetchOptionalPicks(profile.id)
+        if (!alive) return
+        picks = new Set(holidayIds)
       }
       const city = (profile?.location ?? '').split(',')[0].trim().toLowerCase()
-      const next = data.find((h) =>
+      const next = rows.find((h) =>
         h.kind === 'optional'
           ? picks?.has(h.id)
           : !city || String(h.location ?? '').toLowerCase().includes(city)
@@ -52,7 +49,7 @@ export default function Dashboard() {
     }
     run()
     return () => { alive = false }
-  }, [profile?.id, profile?.location])
+  }, [profile?.id, profile?.location, setToast])
 
   const holidayOut = useMemo(() => {
     if (!nextHoliday) return null
@@ -69,10 +66,7 @@ export default function Dashboard() {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <span className="eyebrow">Dashboard · {profile?.location}</span>
-        <h1>Welcome, {firstName(profile?.full_name)}.</h1>
-      </header>
+      <PageHead eyebrow={`Dashboard · ${profile?.location}`} title={`Welcome, ${firstName(profile?.full_name)}.`} />
 
       {holidayOut && (
         <aside className="hol-strip" aria-label="Upcoming holiday">
@@ -147,12 +141,9 @@ export default function Dashboard() {
             <li>CHANNEL · PORTAL + EMAIL</li>
             <li>COVERAGE · ALL ACCOUNTS</li>
           </ul>
-          <button
-            className="btn btn--ghost support-panel__btn"
-            onClick={() => setToast('Help desk ticket draft opened (demo)')}
-          >
+          <Button variant='ghost' className='support-panel__btn' onClick={() => setToast('Help desk ticket draft opened (demo)')}>
             <IconLifebuoy size={16} /> Help desk
-          </button>
+          </Button>
         </div>
       </aside>
     </div>

@@ -1,49 +1,87 @@
 import { useMemo, useState } from 'react'
-import { fmtDate } from '../data.js'
+import { fmtDate } from '../utils/dates'
 import { useAuth } from '../store/AuthContext'
-import { StatusPill } from '../components/UI'
+import { STATUSES } from '../constants'
+import { Button, PageHead, PanelTable, StatusPill } from '../components/ui'
 
-const FILTERS = ['Pending', 'All', 'Approved', 'Rejected']
+const FILTERS = [STATUSES.Pending, 'All', STATUSES.Approved, STATUSES.Rejected]
 
 export default function LeaveRequests() {
   const { team, decide, decideMany } = useAuth()
   const [busyId, setBusyId] = useState(null)
   const [bulkBusy, setBulkBusy] = useState(false)
-  const [filter, setFilter] = useState('Pending')
+  const [filter, setFilter] = useState(STATUSES.Pending)
 
   const rows = useMemo(
     () => (filter === 'All' ? team : team.filter((r) => r.status === filter)),
     [team, filter]
   )
   const pendingIds = useMemo(
-    () => team.filter((r) => r.status === 'Pending').map((r) => r.id),
+    () => team.filter((r) => r.status === STATUSES.Pending).map((r) => r.id),
     [team]
   )
   const pending = pendingIds.length
 
-  const act = (id, decision) => { setBusyId(null); decide(id, decision) }
-  const actWithBusy = (id, decision) => {
+  const act = async (id, decision) => {
     setBusyId(id)
-    setTimeout(() => act(id, decision), 350)
+    await decide(id, decision)
+    setBusyId(null)
   }
   const approveAll = async () => {
     setBulkBusy(true)
-    setTimeout(async () => {
-      await decideMany(pendingIds, 'Approved')
-      setBulkBusy(false)
-    }, 350)
+    await decideMany(pendingIds, STATUSES.Approved)
+    setBulkBusy(false)
   }
+
+  const columns = [
+    {
+      label: 'Employee',
+      cellClass: 'nowrap',
+      cell: (r) => (
+        <div className="req-name"><b>{r.name}</b><span>{r.empId}</span></div>
+      ),
+    },
+    { label: 'Absence Type', cellClass: 'nowrap', cell: (r) => r.absenceType },
+    { label: 'From', cellClass: 'nowrap', cell: (r) => fmtDate(r.from) },
+    { label: 'To', cellClass: 'nowrap', cell: (r) => fmtDate(r.to) },
+    { label: 'Days', cell: (r) => r.days },
+    { label: 'Reason', maxWidth: 240, cell: (r) => r.reason },
+    { label: 'Requested On', cellClass: 'nowrap', cell: (r) => fmtDate(r.requestedOn) },
+    { label: 'Status', cell: (r) => <StatusPill status={r.status} /> },
+    {
+      label: 'Action',
+      cell: (r) =>
+        r.status === STATUSES.Pending ? (
+          <span className="row-actions">
+            <button
+              className="pill-act pill-act--approve"
+              disabled={busyId === r.id}
+              onClick={() => act(r.id, STATUSES.Approved)}
+            >
+              APPROVE
+            </button>
+            <button
+              className="pill-act pill-act--reject"
+              disabled={busyId === r.id}
+              onClick={() => act(r.id, STATUSES.Rejected)}
+            >
+              REJECT
+            </button>
+          </span>
+        ) : (
+          <span className="muted mono">NO ACTION</span>
+        ),
+    },
+  ]
 
   return (
     <div className="page">
-      <header className="page-head">
-        <span className="eyebrow">Team Queue</span>
-        <h1>Leave requests.</h1>
+      <PageHead eyebrow="Team Queue" title="Leave requests.">
         <p>
           Tenure of your team, at a glance. Pending items wait in this queue until you decide
           — decisions are logged instantly.
         </p>
-      </header>
+      </PageHead>
 
       <div className="hl-filters">
         <label className="hl-select">
@@ -56,82 +94,34 @@ export default function LeaveRequests() {
           >
             {FILTERS.map((f) => (
               <option key={f} value={f}>
-                {f === 'Pending' ? `Pending (${pending})` : f}
+                {f === STATUSES.Pending ? `Pending (${pending})` : f}
               </option>
             ))}
           </select>
         </label>
       </div>
 
-      <div className="card">
-        <div className="hl-panel-head">
-          <h3>Team Requests</h3>
-          <div className="hl-panel-head__right">
-            {pending >= 2 && (
-              <button
-                className="btn btn--primary btn--sm"
-                disabled={bulkBusy}
-                onClick={approveAll}
-                title={`Approve all ${pending} pending requests`}
-              >
-                {bulkBusy ? 'APPROVING…' : `APPROVE ALL (${pending})`}
-              </button>
-            )}
-            <span className="hl-count">{rows.length} ENTRIES</span>
-          </div>
-        </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Employee</th><th>Absence Type</th><th>From</th><th>To</th><th>Days</th>
-                <th>Reason</th><th>Requested On</th><th>Status</th><th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr><td colSpan={9} className="table__empty">No {filter === 'All' ? '' : filter.toLowerCase()} requests right now.</td></tr>
-              )}
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td className="nowrap">
-                    <div className="req-name"><b>{r.name}</b><span>{r.empId}</span></div>
-                  </td>
-                  <td className="nowrap">{r.absenceType}</td>
-                  <td className="nowrap">{fmtDate(r.from)}</td>
-                  <td className="nowrap">{fmtDate(r.to)}</td>
-                  <td>{r.days}</td>
-                  <td style={{ maxWidth: 240 }}>{r.reason}</td>
-                  <td className="nowrap">{fmtDate(r.requestedOn)}</td>
-                  <td><StatusPill status={r.status} /></td>
-                  <td>
-                    {r.status === 'Pending' ? (
-                      <span className="row-actions">
-                        <button
-                          className="pill-act pill-act--approve"
-                          disabled={busyId === r.id}
-                          onClick={() => actWithBusy(r.id, 'Approved')}
-                        >
-                          APPROVE
-                        </button>
-                        <button
-                          className="pill-act pill-act--reject"
-                          disabled={busyId === r.id}
-                          onClick={() => actWithBusy(r.id, 'Rejected')}
-                        >
-                          REJECT
-                        </button>
-                      </span>
-                    ) : (
-                      <span className="muted mono">NO ACTION</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <PanelTable
+        title="Team Requests"
+        count={`${rows.length} ENTRIES`}
+        headExtra={
+          pending >= 2 && (
+            <Button
+              size="sm"
+              busy={bulkBusy}
+              busyLabel="APPROVING…"
+              title={`Approve all ${pending} pending requests`}
+              onClick={approveAll}
+            >
+              {`APPROVE ALL (${pending})`}
+            </Button>
+          )
+        }
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.id}
+        empty={`No ${filter === 'All' ? '' : filter.toLowerCase()} requests right now.`}
+      />
     </div>
   )
 }
