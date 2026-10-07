@@ -178,7 +178,17 @@
   .strip { grid-template-columns: 1fr 1fr; }
   .form-row--2, .form-row--type { grid-template-columns: 1fr; }
   .dash-balance__grid { grid-template-columns: 1fr; }
-  .support-panel--footer { flex-direction: column; align-items: flex-start; }
+  .form-actions { padding: 14px 16px 18px; }
+
+  /* Support Centre: compact single-column card — tight padding, inline meta,
+     so it stops dominating the end of the dashboard on phones */
+  .support-panel--footer { gap: 10px 0; padding: 16px 14px; }
+  .support-panel--footer .support-panel__body { flex: 1 1 100%; }
+  .support-panel__title { font-size: 14px; margin: 6px 0 6px; }
+  .support-panel p { font-size: 12px; }
+  .support-panel--footer .support-panel__side { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px 16px; width: 100%; }
+  .support-panel--footer .support-panel__list { flex-direction: row; flex-wrap: wrap; gap: 4px 14px; margin: 0; }
+  .support-panel__btn { padding: 8px 12px; font-size: 9.5px; }
 }
 
 /* Shared table scaffold (PanelTable) — replaces per-page inline overflow divs */

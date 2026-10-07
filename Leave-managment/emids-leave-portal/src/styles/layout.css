@@ -276,5 +276,8 @@
 
 @media (max-width: 860px) {
   .header__title { display: none; }
-  .page { padding: 20px 16px 40px; }
+  .page { padding: 20px 16px 84px; }
+  /* compact assistant FAB so it stops covering the last card's text on phones */
+  .chatfab { width: 42px; height: 42px; right: 14px; bottom: 14px; }
+  .chatpanel { right: 14px; bottom: 66px; width: min(320px, calc(100vw - 28px)); }
 }
