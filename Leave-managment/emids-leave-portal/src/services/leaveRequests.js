@@ -1,7 +1,13 @@
 import { supabase } from '../lib/supabase'
 import { normalizeSupabaseError } from './errors'
-import { REQUEST_FIELDS } from '../store/mappings'
 import { STATUSES } from '../constants'
+
+// Embed select shared by fetchMine / fetchTeam; the mappers in src/store
+// consume the exact shape this selects.
+const REQUEST_FIELDS =
+  'request_no, employee_id, start_date, end_date, days, mode, reason, status, requested_on, ' +
+  'leave_types!leave_requests_leave_type_id_fkey(name), ' +
+  'employees!leave_requests_employee_id_fkey(full_name, emp_no)'
 
 export async function fetchMine(employeeId) {
   const { data, error } = await supabase

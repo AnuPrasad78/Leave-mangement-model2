@@ -1,4 +1,4 @@
-import { IconAlertTriangle } from '../Icons'
+import { IconAlertTriangle } from '../../Icons'
 
 export function WarnBanner({ children }) {
   return (

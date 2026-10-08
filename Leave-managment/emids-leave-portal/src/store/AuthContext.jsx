@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { getSession, subscribeToAuth, signInWithPassword, signOut as signOutClient } from '../services/auth'
 import { fetchProfileByAuthId, fetchReportIds } from '../services/employees'
 import { fetchLatestBalances } from '../services/balances'
 import { fetchActiveLeaveTypeNames, fetchLeaveTypeIdByName } from '../services/leaveTypes'
 import { fetchMine, fetchTeam, insertMine, cancelMine, decide, decideMany } from '../services/leaveRequests'
 import { mapRow, mapTeamRow, toBalances } from './mappings'
-import { TOAST_KIND } from '../constants'
+import { TOAST_KIND, STATUSES } from '../constants'
 
 export const AuthContext = createContext(null)
 
@@ -109,14 +109,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { session } = await getSession()
       if (mounted) {
         await handleSession(session)
         setAuthReady(true)
       }
     }
     init()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const subscription = subscribeToAuth((event, session) => {
       if (event === 'SIGNED_OUT') {
         meRef.current = null
         setSignedIn(false)
@@ -136,12 +136,12 @@ export function AuthProvider({ children }) {
   }, [handleSession])
 
   const signIn = useCallback(async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await signInWithPassword(email, password)
     return error ? error.message : null
   }, [])
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    await signOutClient()
   }, [])
 
   const addMine = useCallback(
@@ -179,7 +179,7 @@ export function AuthProvider({ children }) {
       if (!meId) return
       const { error } = await cancelMine(id, meId)
       if (error) setToast(error.userMessage, TOAST_KIND.Error)
-      else setToast('Request cancelled', TOAST_KIND.Error)
+      else setToast('Request cancelled', TOAST_KIND.Ok)
       await loadMine(meId)
       await loadBalances(meId)
     },
@@ -192,7 +192,11 @@ export function AuthProvider({ children }) {
       if (!meId) return
       const { error } = await decide(id, decision, meId)
       if (error) setToast(error.userMessage, TOAST_KIND.Error)
-      else setToast(decision === 'Approved' ? 'Request approved' : 'Request rejected', decision === 'Approved' ? TOAST_KIND.Ok : TOAST_KIND.Error)
+      else
+        setToast(
+          decision === STATUSES.Approved ? 'Request approved' : 'Request rejected',
+          decision === STATUSES.Approved ? TOAST_KIND.Ok : TOAST_KIND.Error
+        )
       await loadTeam(meId)
     },
     [loadTeam, setToast]
@@ -204,7 +208,7 @@ export function AuthProvider({ children }) {
       if (!meId || !ids.length) return
       const { error } = await decideMany(ids, decision, meId)
       if (error) setToast(error.userMessage, TOAST_KIND.Error)
-      else if (decision === 'Approved') setToast(`${ids.length} requests approved`, TOAST_KIND.Ok)
+      else if (decision === STATUSES.Approved) setToast(`${ids.length} requests approved`, TOAST_KIND.Ok)
       else setToast(`${ids.length} requests rejected`, TOAST_KIND.Error)
       await loadTeam(meId)
     },

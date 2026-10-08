@@ -65,20 +65,8 @@ export const IconLogout = (p) => (
   <Svg {...p}><path d="M14 8V6a2 2 0 0 0 -2 -2H6a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2 -2v-2M9 12h12l-3 -3M18 15l3 -3" /></Svg>
 )
 
-export const IconChevronRight = (p) => (
-  <Svg {...p}><path d="M9 6l6 6-6 6" /></Svg>
-)
-
 export const IconChevronDown = (p) => (
   <Svg {...p}><path d="M6 9l6 6 6-6" /></Svg>
-)
-
-export const IconArrowUpRight = (p) => (
-  <Svg {...p}><path d="M7 17L17 7M8 7h9v9" /></Svg>
-)
-
-export const IconCheck = (p) => (
-  <Svg {...p}><path d="M5 12l5 5L20 7" /></Svg>
 )
 
 export const IconBan = (p) => (
@@ -91,10 +79,6 @@ export const IconAlertTriangle = (p) => (
 
 export const IconLifebuoy = (p) => (
   <Svg {...p}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M15 15l3.5 3.5M9 15l-3.5 3.5M15 9l3.5 -3.5M9 9L5.5 5.5" /></Svg>
-)
-
-export const IconClock = (p) => (
-  <Svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Svg>
 )
 
 export const IconMail = (p) => (
@@ -123,14 +107,6 @@ export const IconUserCheck = (p) => (
 
 export const IconUser = (p) => (
   <Svg {...p}><circle cx="12" cy="7.5" r="3.5" /><path d="M5 20.5c1-3.2 3.7-4.8 7-4.8s6 1.6 7 4.8" /></Svg>
-)
-
-export const IconMapPin = (p) => (
-  <Svg {...p}><path d="M12 11m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0M12 21c-4 -4 -7.5 -7.2 -7.5 -11a7.5 7.5 0 0 1 15 0c0 3.8 -3.5 7 -7.5 11" /></Svg>
-)
-
-export const IconPlus = (p) => (
-  <Svg {...p}><path d="M12 5v14M5 12h14" /></Svg>
 )
 
 export const IconSparkles = (p) => (

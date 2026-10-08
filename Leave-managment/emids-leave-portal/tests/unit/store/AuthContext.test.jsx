@@ -96,7 +96,7 @@ describe('store/AuthContext', () => {
     await act(async () => {
       await spy.current.cancelMine('LV-1')
     })
-    expect(spy.current.toast).toMatchObject({ msg: 'Request cancelled', kind: 'red' })
+    expect(spy.current.toast).toMatchObject({ msg: 'Request cancelled', kind: 'ok' })
   })
 
   it("rejecting a request toasts in red and approving in ok", async () => {

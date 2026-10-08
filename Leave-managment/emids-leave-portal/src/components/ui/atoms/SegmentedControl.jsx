@@ -1,11 +1,3 @@
-export function Chip({ isOn, className = 'chip', children, ...props }) {
-  return (
-    <button type='button' className={`${className}${isOn ? ' is-on' : ''}`} aria-pressed={Boolean(isOn)} {...props}>
-      {children}
-    </button>
-  )
-}
-
 export function SegmentedControl({ value, options, onChange, ariaLabel }) {
   return (
     <div className='seg' role='group' aria-label={ariaLabel}>

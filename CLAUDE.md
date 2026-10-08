@@ -36,18 +36,39 @@ npm run format     # prettier --write src tests
 ```
 src/
   constants.js       # mirrors of the DB enums: STATUSES, MODES, ROLES, TOAST_KIND, MAX_PICKS, separationReasons
-  components/ui/     # reusable primitives (Button, Field, PageHead, PanelTable, Chip, SegmentedControl,
-                     # IconButton, StatusPill, Toast, Donut, WarnBanner, ConfirmModal) — see components/ui/index.jsx
+  components/ui/     # atoms/ (Button, Field, PageHead, Chip, SegmentedControl, IconButton,
+                     # StatusPill, Toast, Donut, WarnBanner) and molecules/ (PanelTable, ConfirmModal),
+                     # re-exported unchanged by the components/ui/index.jsx barrel
   components/layout/ # ProfileMenu, ChatPanel (split from Layout.jsx); Layout.jsx still owns header + drawer
-  hooks/useDismiss.js# escape / outside-mousedown dismissal used by drawer, profile menu, ConfirmModal
+  components/feature/ # organisms extracted from pages, props-in (no store reads):
+                     # leave-request-form/LeaveRequestForm, leave-request-queue/LeaveRequestQueue,
+                     # leave-request-history/LeaveRequestHistory
+  features/          # pure leave-domain rules (+ one hook): leave-requests/computeRequest
+                     # (half-day day-count, validation), balances/rules (isOverdrawn, remainingAfter,
+                     # EMPTY_BALANCES), holidays/ticker (findNextHoliday, formatHolidayTicker) and
+                     # useHolidayPicks, separations/validateSeparation
+  hooks/useDismiss.js# escape / outside-mousedown dismissal used by drawer, profile menu, ConfirmModal, ChatPanel
   services/          # the ONLY layer importing src/lib/supabase: leaveRequests, holidays, balances,
-                     # leaveTypes, employees, separations, legacyMigration + errors.js
-                     # every call returns { data, error } with errors normalized (normalizeSupabaseError)
-  store/AuthContext.jsx # central state (see below); mappings.js holds row→viewmodel mappers + EMPTY_BALANCES
+                     # leaveTypes, employees, separations, legacyMigration, auth + errors.js
+                     # every call returns { data, error } with errors normalized (normalizeSupabaseError);
+                     # auth.js deliberately returns raw Supabase auth messages (Login's wording contract)
+  store/AuthContext.jsx # central state (see below); mappings.js holds row→viewmodel mappers
   utils/             # dates (fmtDate, dayName, businessDaysBetween, todayISO — LOCAL date, not UTC),
                      # format (fmtDays), roles (canApprove), balances (balanceRow/balanceValue), ErrorBoundary
-  pages/             # routing targets; consume ui primitives + services only (no direct supabase calls)
+  pages/             # route-level compositions: PageHead + organisms; data via useAuth (),
+                     # rules via features/ (no direct supabase or services calls)
 ```
+
+### Atomic design classification
+
+Component classification is based on responsibility and behavior rather than visual size. For example:
+
+- **Atoms:** Button, Field, IconButton, Chip, SegmentedControl, PageHead, StatusPill, Toast, Donut, and WarnBanner.
+- **Molecules:** ConfirmModal and PanelTable because they combine reusable elements into a complete interaction or data presentation composition.
+- **Organisms:** complete feature sections such as LeaveRequestForm, LeaveRequestQueue, and LeaveRequestHistory.
+- **Pages:** route-level compositions such as Dashboard and ApplyLeave.
+
+`ConfirmModal` is a molecule because it owns the complete confirmation interaction: dialog semantics, focus management, Escape/outside dismissal, focus restoration, and confirm/cancel actions. A generic `Dialog` shell may be an atom if it only provides structural accessibility behavior; feature-specific confirmation remains owned by the page or feature layer.
 
 **Central state lives in `src/store/AuthContext.jsx`.** On sign-in it resolves the signed-in Supabase user to their `employees` row (`auth_user_id = user.id`), then loads `mine` (own leave requests), `team` (requests of direct reports via `manager_id`), `balances` (latest-year `leave_balances` row), and `leaveTypes` — all through the services layer, with failed loads toasted via `setToast`. Write helpers `addMine`, `cancelMine`, `decide`, `decideMany` wrap the leave-request mutations, and `setToast` is the global toast (single slot, 3200 ms, ref-based timer). Pages consume `useAuth()`.
 
@@ -71,7 +92,7 @@ Other conventions: statuses/modes/roles are Postgres enums (`'Pending'/'Approved
 
 Run from the app folder (details and commands in `.claude/skills/run-tests/SKILL.md`):
 
-- **Unit** (`npm test`): suites mirror `src/` under `tests/unit/` (utils, store, services, components/ui, layout, hooks). The Supabase client is behind `src/lib/supabase` and mocked with `vi.mock` + the chainable fake in `tests/unit/mocks/supabase.js` — unit tests never hit the network. TDD: write the failing test first.
+- **Unit** (`npm test`): suites mirror `src/` under `tests/unit/` (utils, store, services, features, components/ui, components/feature, components/layout, hooks, pages). The Supabase client is behind `src/lib/supabase` and mocked with `vi.mock` + the chainable fake in `tests/unit/mocks/supabase.js` — unit tests never hit the network. TDD: write the failing test first.
 - **E2E** (`npm run e2e`): Playwright against the real hosted Supabase via a dev server on :5180, `workers: 1` (mutating specs are serialized). Logins from `tests/e2e/fixtures.js`: manager `sai.nithinreddy@emids.com`, staff `vikram.deshmukh@emids.com`, password `Portal@2026` (`SEED_PASSWORD` to override). Mutating specs clean up after themselves (apply-leave cancels its own `[e2e]` request; holidays unpicks; approve flows decide only in-test-created rows); specs depending on the staff account auto-skip when it isn't provisioned. `supabase/seed.sql` re-seeds = reset.
 - **Visual parity**: `tests/e2e/screenshot-visual.mjs` (1440×900, per role) + `compare-visual.mjs`; sets live in `tests/.visual-baseline/.visual-after` (gitignored).
 
@@ -83,6 +104,6 @@ Run from the app folder (details and commands in `.claude/skills/run-tests/SKILL
 
 ## Git conventions
 
-- Origin: `https://github.com/AnuPrasad78/Leave-mangement-model2.git`; active working branch `refactor/production-structure` (cut from `UI-Fixes`).
+- Origin: `https://github.com/AnuPrasad78/Leave-mangement-model2.git`; active working branch `atomic_design` (atomic-design refactor on top of `refactor/production-structure`).
 - **Never commit or push without asking the user first** (standing user rule).
 - Commit application source, configs and tests (`src/`, `supabase/`, `tests/`, `package.json`, lint/format configs, `.claude/skills/`, CLAUDE.md). Leave `.env.local`, `.claude/launch.json`, `supabase/.temp/`, `dist/`, `test-results/`, `tests/.visual-*/` out of commits (gitignored).

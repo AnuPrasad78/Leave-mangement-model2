@@ -4,6 +4,7 @@ import { separationReasons, TOAST_KIND } from '../constants'
 import { todayISO } from '../utils/dates'
 import { useAuth } from '../store/AuthContext'
 import { createSeparationRequest } from '../services/separations'
+import { validateSeparation } from '../features/separations/validateSeparation'
 import { Button, ConfirmModal, Field, PageHead, WarnBanner } from '../components/ui'
 
 export default function SeparationRequest() {
@@ -16,13 +17,9 @@ export default function SeparationRequest() {
   const [confirming, setConfirming] = useState(false)
 
   const submit = () => {
-    const errs = {}
-    const today = todayISO()
-    if (!lwd) errs.lwd = 'Pick your proposed last working day.'
-    if (lwd && lwd < today) errs.lwd = 'Last working day must be in the future.'
-    if (!reason) errs.reason = 'Select a reason for separation.'
-    if (!lwd || !reason || (lwd && lwd < today)) { setErrors(errs); return }
-    setErrors({})
+    const errs = validateSeparation({ lwd, reason })
+    setErrors(errs)
+    if (Object.keys(errs).length) return
     setConfirming(true)
   }
 

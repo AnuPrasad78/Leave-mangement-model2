@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAs, PASSWORD, ROLES } from './fixtures'
+import { loginAs } from './fixtures'
 
 // One full self-service cycle: raise a request marked [e2e], see it in the list,
 // then cancel it. Dates sit ~60 days out — the DB enforces request overlap

@@ -4,7 +4,8 @@ import { useAuth } from '../store/AuthContext'
 import { TOAST_KIND } from '../constants'
 import { canApprove } from '../utils/roles'
 import { todayISO } from '../utils/dates'
-import { EMPTY_BALANCES } from '../store/mappings'
+import { EMPTY_BALANCES } from '../features/balances/rules'
+import { findNextHoliday, formatHolidayTicker } from '../features/holidays/ticker'
 import { Button, Donut, PageHead } from '../components/ui'
 import { fetchUpcomingHolidays, fetchOptionalPicks } from '../services/holidays'
 import {
@@ -40,30 +41,14 @@ export default function Dashboard() {
         if (!alive) return
         picks = new Set(holidayIds)
       }
-      const city = (profile?.location ?? '').split(',')[0].trim().toLowerCase()
-      const next = rows.find((h) =>
-        h.kind === 'optional'
-          ? picks?.has(h.id)
-          : !city || String(h.location ?? '').toLowerCase().includes(city)
-      )
-      if (alive) setNextHoliday(next ?? null)
+      const next = findNextHoliday(rows, picks, profile?.location)
+      if (alive) setNextHoliday(next)
     }
     run()
     return () => { alive = false }
   }, [profile?.id, profile?.location, setToast])
 
-  const holidayOut = useMemo(() => {
-    if (!nextHoliday) return null
-    const d = new Date(`${nextHoliday.holiday_date}T00:00:00`)
-    const now = new Date(); now.setHours(0, 0, 0, 0)
-    const diff = Math.round((d - now) / 86400000)
-    return {
-      name: nextHoliday.name,
-      dateLabel: d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }).toUpperCase(),
-      when: diff === 0 ? 'TODAY' : diff === 1 ? 'TOMORROW' : `IN ${diff} DAYS`,
-      kind: nextHoliday.kind,
-    }
-  }, [nextHoliday])
+  const holidayOut = useMemo(() => formatHolidayTicker(nextHoliday), [nextHoliday])
 
   return (
     <div className="page">

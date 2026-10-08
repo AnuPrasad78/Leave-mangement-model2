@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { dayName } from '../utils/dates'
-import { legacyHolidayData } from '../data/legacyHolidayData'
 import { useAuth } from '../store/AuthContext'
-import { TOAST_KIND, MAX_PICKS } from '../constants'
+import { MAX_PICKS, TOAST_KIND } from '../constants'
 import { Chip, Field, PageHead, PanelTable } from '../components/ui'
-import { fetchAllHolidays, fetchOptionalPicks, addOptionalPick, removeOptionalPick, isPickCapError } from '../services/holidays'
-import { migrateLegacyPicks } from '../services/legacyMigration'
+import { fetchAllHolidays } from '../services/holidays'
+import { useHolidayPicks } from '../features/holidays/useHolidayPicks'
 
 export default function Holidays() {
   const { setToast, profile } = useAuth()
-  const [all, setAll] = useState(null)     // all holiday rows; null while loading
-  const [picks, setPicks] = useState(null) // Set of holiday ids; null while loading
+  const [all, setAll] = useState(null) // all holiday rows; null while loading
   const [country, setCountry] = useState('India')
   const [location, setLocation] = useState('Bangalore')
   const [year, setYear] = useState(2026)
+
+  const { picks, chosen, togglePick } = useHolidayPicks({ profile, setToast, all, country, year })
 
   useEffect(() => {
     async function run() {
@@ -23,29 +23,6 @@ export default function Holidays() {
     }
     run()
   }, [setToast])
-
-  useEffect(() => {
-    if (!profile?.id) return
-    async function run() {
-      const { holidayIds, error } = await fetchOptionalPicks(profile.id)
-      if (error) setToast(error.userMessage, TOAST_KIND.Error)
-      setPicks(new Set(holidayIds))
-    }
-    run()
-  }, [profile, setToast])
-
-  // One-time migration: old localStorage emids-optional-holidays stored per-cell
-  // arrays of ORIGINAL-array-order indices. Resolve them to holiday ids and insert.
-  // Only re-set picks when rows were actually migrated, otherwise this effect
-  // re-fires on every picks update (new Set identity) and loops forever.
-  useEffect(() => {
-    if (!profile?.id || !all || picks === null) return
-    migrateLegacyPicks({ employeeId: profile.id, all, pickedIds: [...picks], legacyData: legacyHolidayData }).then(
-      ({ inserted, pickedIds }) => {
-        if (inserted) setPicks(new Set(pickedIds))
-      }
-    )
-  }, [profile, all, picks])
 
   const countries = useMemo(() => [...new Set((all ?? []).map((h) => h.country))], [all])
   const locations = useMemo(
@@ -72,41 +49,6 @@ export default function Holidays() {
     () => (all ?? []).filter((h) => h.country === country && h.kind === 'optional' && h.year === Number(year)),
     [all, country, year]
   )
-  const chosen = useMemo(
-    () => (all ?? []).filter((h) => picks?.has(h.id) && h.country === country && h.year === Number(year) && h.kind === 'optional'),
-    [all, picks, country, year]
-  )
-
-  const refetchPicks = async () => {
-    if (!profile?.id) return
-    const { holidayIds } = await fetchOptionalPicks(profile.id)
-    setPicks(new Set(holidayIds))
-  }
-
-  const toggle = async (h) => {
-    if (!profile?.id || picks === null) return
-    if (picks.has(h.id)) {
-      setPicks(new Set([...picks].filter((id) => id !== h.id)))
-      const { error } = await removeOptionalPick(profile.id, h.id)
-      if (error) {
-        setToast(error.userMessage, TOAST_KIND.Error)
-        refetchPicks()
-      }
-      return
-    }
-    if (chosen.length >= MAX_PICKS) {
-      setToast(`You can choose only ${MAX_PICKS} optional holidays`, TOAST_KIND.Error)
-      return
-    }
-    const { error } = await addOptionalPick(profile.id, h.id)
-    if (error) {
-      if (isPickCapError(error)) setToast(`You can choose only ${MAX_PICKS} optional holidays`, TOAST_KIND.Error)
-      else setToast(error.userMessage, TOAST_KIND.Error)
-      refetchPicks()
-      return
-    }
-    setPicks(new Set([...picks, h.id]))
-  }
 
   const loading = all === null
 
@@ -122,7 +64,7 @@ export default function Holidays() {
       cell: (h) => {
         const isPicked = picks?.has(h.id)
         return (
-          <Chip className="opt-choice" isOn={isPicked} aria-label={`Choose ${h.name}`} onClick={() => toggle(h)}>
+          <Chip className="opt-choice" isOn={isPicked} aria-label={`Choose ${h.name}`} onClick={() => togglePick(h)}>
             ✓
           </Chip>
         )

@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { loginAs, ROLES, PASSWORD } from './fixtures'
+import { ROLES, PASSWORD } from './fixtures'
 
-test('manager sign-in succeeds and lands on the dashboard', async ({ page }, testInfo) => {
+
+test('manager sign-in succeeds and lands on the dashboard', async ({ page }) => {
   await page.goto('/login')
   await expect(page.getByRole('heading', { name: 'Welcome back.' })).toBeVisible()
   await page.getByPlaceholder('name@emids.com').fill(ROLES.manager)

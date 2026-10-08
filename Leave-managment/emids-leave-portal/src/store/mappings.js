@@ -1,10 +1,5 @@
 // Row → view-model shapers for the leave_requests / leave_balances queries.
-export const EMPTY_BALANCES = { totalCredited: 0, utilized: 0, rows: [] }
-
-export const REQUEST_FIELDS =
-  'request_no, employee_id, start_date, end_date, days, mode, reason, status, requested_on, ' +
-  'leave_types!leave_requests_leave_type_id_fkey(name), ' +
-  'employees!leave_requests_employee_id_fkey(full_name, emp_no)'
+export { EMPTY_BALANCES } from '../features/balances/rules'
 
 export const mapRow = (r) => ({
   id: r.request_no,

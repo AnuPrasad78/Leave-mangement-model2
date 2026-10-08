@@ -7,7 +7,6 @@ export async function fetchProfileByAuthId(uid) {
     .select('*, manager:employees ( full_name )')
     .eq('auth_user_id', uid)
     .single()
-  console.log('fetchProfileByAuthId', uid, data, error)
 
   // The same-table embed degrades to an empty array whenever PostgREST can't
   // resolve the employees <-> employees relationship in its schema cache, so

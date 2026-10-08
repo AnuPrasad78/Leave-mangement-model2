@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { IconX } from '../Icons'
-import { useDismiss } from '../../hooks/useDismiss'
+import { IconX } from '../../Icons'
+import { useDismiss } from '../../../hooks/useDismiss'
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
 

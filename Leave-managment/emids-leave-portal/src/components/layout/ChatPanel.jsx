@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { IconButton } from '../ui'
-import { IconX, IconSparkles } from '../Icons'
+import { IconX } from '../Icons'
+import { useDismiss } from '../../hooks/useDismiss'
 
 const CHAT_OPTIONS = [
   'How do I apply for leave?',
@@ -11,13 +12,9 @@ const CHAT_OPTIONS = [
 
 export default function ChatPanel({ profile, onDismiss }) {
   const ref = useRef(null)
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onDismiss()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onDismiss])
+  // Escape-only dismissal — outside mousedown is intentionally left off so the
+  // FAB overlay behaves like the drawer dialog, not the profile popover.
+  useDismiss(ref, { onClose: onDismiss, outside: false })
 
   return (
     <div className='chatpanel' role='dialog' aria-label='AI assistant' ref={ref}>
@@ -40,5 +37,3 @@ export default function ChatPanel({ profile, onDismiss }) {
     </div>
   )
 }
-
-export { IconSparkles, CHAT_OPTIONS }
