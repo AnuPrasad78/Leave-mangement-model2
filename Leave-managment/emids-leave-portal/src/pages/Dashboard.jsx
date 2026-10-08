@@ -15,6 +15,7 @@ const ACTIONS = [
   { to: '/apply-leave', title: 'Apply Leave', text: 'Time off, WFH, comp-off — logged against live balances.', icon: IconCalendarPlus },
   { to: '/leave-details', title: 'My Requests', text: 'Every request you have raised, with its current status.', icon: IconFileText },
   { to: '/leave-requests', title: 'Leave Requests', text: 'Approve or reject your team’s pending time off.', icon: IconClipboardCheck },
+  { to: '/holidays', title: 'Holidays', text: 'Company-wide and optional holidays, with your own three picks.', icon: IconSun },
 ]
 
 const firstName = (fullName) => (fullName ?? '').split(' ').slice(0, 2).join(' ').trim()

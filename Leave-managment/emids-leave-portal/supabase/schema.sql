@@ -234,13 +234,20 @@ create trigger leave_requests_guard
   before update on public.leave_requests
   for each row execute function public.leave_requests_update_guard();
 
--- 3. Keep balances in sync with approvals (approve adds days, moving off Approved removes them).
+-- 3. Keep balances in sync with approvals (approve adds days up to the
+--    remaining pool, moving off Approved removes them).
 create function public.leave_requests_balance_bump() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
   v_pool  text;
   v_delta numeric;
   v_year  smallint;
+  v_opening        numeric;
+  v_credited       numeric;
+  v_utilized       numeric;
+  v_cont_credited  numeric;
+  v_cont_utilized  numeric;
+  v_free           numeric;
 begin
   if new.start_date is null then return new; end if;
   v_year := extract(year from new.start_date)::smallint;
@@ -261,6 +268,33 @@ begin
   end if;
 
   if v_delta > 0 then
+    -- Cap check: an approval may not take the drawn pool negative. Teammates
+    -- without a balance row start from the same standard credits the upsert
+    -- below would give (opening 0 · annual 18 · contingency 10).
+    select lb.opening_annual, lb.annual_credited, lb.annual_utilized,
+           lb.contingency_credited, lb.contingency_utilized
+      into v_opening, v_credited, v_utilized, v_cont_credited, v_cont_utilized
+      from public.leave_balances lb
+     where lb.employee_id = new.employee_id and lb.year = v_year;
+    if not found then
+      v_opening := 0;        v_credited := 18;       v_utilized := 0;
+      v_cont_credited := 10; v_cont_utilized := 0;
+    end if;
+
+    v_free := case
+      when v_pool = 'annual' then v_opening + v_credited - v_utilized
+      else                        v_cont_credited - v_cont_utilized
+    end;
+
+    if v_delta > v_free then
+      raise exception
+        'This approval needs %s day(s) from the %s pool, but only %s day(s) remain for %s. Ask the People Success desk to credit more balance first.',
+        to_char(v_delta, 'FM990.99'),
+        case when v_pool = 'annual' then 'annual' else 'contingency' end,
+        to_char(greatest(v_free, 0), 'FM990.99'),
+        v_year;
+    end if;
+
     -- Upsert: teammates without a balance row start with standard credits.
     insert into public.leave_balances
       (employee_id, year, opening_annual, annual_credited, annual_utilized,

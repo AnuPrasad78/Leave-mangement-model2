@@ -16,6 +16,14 @@ describe('services/errors', () => {
     expect(n.context).toBe('cancel')
   })
 
+  it('replaces an overlapping leave request error with a friendly message', () => {
+    const n = normalizeSupabaseError(
+      { message: 'conflicting key value violates exclusion constraint "leave_requests_no_overlap"', code: '23503' },
+      'submit request'
+    )
+    expect(n.userMessage).toBe('You have applied leave on the same day')
+  })
+
   it('survives missing fields', () => {
     expect(normalizeSupabaseError(null)).toBeNull()
     expect(normalizeSupabaseError({}).userMessage).toBe('Something went wrong. Please try again.')

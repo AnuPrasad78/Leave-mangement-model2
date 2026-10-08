@@ -28,6 +28,10 @@ export default function ApplyLeave() {
   const remaining = days != null && available != null ? available - days : null
   const fmt = (v) => (v == null ? '' : Number.isInteger(v) ? String(v) : v.toFixed(1))
 
+  // Data guard: an overdrawn stored balance (utilized > credited + opening)
+  // blocks new requests until the People Success desk corrects the ledger.
+  const overdrawn = !!balances && balances.utilized > balances.totalCredited
+
   const [submitting, setSubmitting] = useState(false)
 
   const submit = async (e) => {
@@ -90,12 +94,18 @@ export default function ApplyLeave() {
             <div className="field">
               <span className="field__label">Number of days</span>
               <div className="form-days">
-                <span>Selected <b>{days ?? '—'}</b> day{days === 1 ? '' : 's'}</span>
+                {/* <span>Selected <b>{days ?? '—'}</b> day{days === 1 ? '' : 's'}</span> */}
                 {remaining != null && (
-                  <span className="form-days__rem">
-                    Remaining <b>{fmt(remaining)}</b> days
-                  </span>
+                  remaining <= 0 ? (
+                    <span className="form-days__rem">No available leave</span>
+                  ) : (<>
+                    <span>Selected <b>{days ?? '—'}</b> day{days === 1 ? '' : 's'}</span>
+                    <span className="form-days__rem">
+                      Remaining <b>{fmt(remaining)}</b> days
+                    </span></>
+                  )
                 )}
+                {overdrawn && <span className="form-days__rem">You have exceeded your available leave balance</span>}
               </div>
             </div>
           </div>
@@ -116,7 +126,13 @@ export default function ApplyLeave() {
           <Button variant="ghost" onClick={() => navigate('/dashboard')}>
             Cancel
           </Button>
-          <Button type="submit" busy={submitting} busyLabel="Submitting…">
+          <Button
+            type="submit"
+            disabled={overdrawn}
+            title={overdrawn ? 'Annual balance shows used beyond credited + opening — ask the People Success desk to correct the ledger first.' : undefined}
+            busy={submitting}
+            busyLabel="Submitting…"
+          >
             Submit Request
           </Button>
         </div>
