@@ -7,19 +7,19 @@ description: Start, verify and stop the emids-leave-portal Vite dev server (port
 
 ## Start
 
-The app lives at `Leave-managment/emids-leave-portal` inside this repo. All npm commands run from there:
+The app lives at `Leave-managment/emids-leave-portal/frontend` inside this repo (backend SQL definition in `backend/supabase/`). All npm commands run from there:
 
 ```bash
-cd Leave-managment/emids-leave-portal && npm run dev
+cd Leave-managment/emids-leave-portal/frontend && npm run dev
 ```
 
 - Default Vite port is **5173**.
-- The desktop preview config (outer session folder `.claude/launch.json`) runs `npm run dev -- --port 5174 --strictPort` and previews http://localhost:5174.
+- The desktop preview config (`emids-leave-portal/.claude/launch.json`) runs `npm run dev --prefix frontend -- --port 5174 --strictPort` and previews http://localhost:5174.
 - The e2e suite and screenshot tooling (playwright.config.js / tests/e2e/screenshot-visual.mjs) use **5180**.
 
 ## Env config
 
-`.env.local` (gitignored) holds `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. `.env.example` documents the full set, including the **service-role key which must never carry a `VITE_` prefix** (a `VITE_`-prefixed value is inlined into the client bundle).
+`.env.local` (gitignored, in `frontend/`) holds `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. `.env.example` documents the full set, including the **service-role key which must never carry a `VITE_` prefix** (a `VITE_`-prefixed value is inlined into the client bundle).
 
 **Restart the dev server after any `.env.local` change** — Vite only reads env at startup. If routes render blank after a file was deleted/renamed while a server was running, kill the ports first:
 

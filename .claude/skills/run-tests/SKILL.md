@@ -5,13 +5,13 @@ description: Run the portal's unit (Vitest, fully mocked) and e2e (Playwright, r
 
 # Testing the leave portal
 
-Run from `Leave-managment/emids-leave-portal`.
+Run from `Leave-managment/emids-leave-portal/frontend`.
 
 ## Unit tests (Vitest, jsdom, fully mocked — no network)
 
 ```bash
-cd Leave-managment/emids-leave-portal && npm test        # single run
-cd Leave-managment/emids-leave-portal && npm run test:watch
+cd Leave-managment/emids-leave-portal/frontend && npm test        # single run
+cd Leave-managment/emids-leave-portal/frontend && npm run test:watch
 ```
 
 - All Supabase I/O is behind `src/services/*`, so unit tests mock `src/lib/supabase` via `vi.mock` with the chainable fake in `tests/unit/mocks/supabase.js`. Queue responses with `mockDb.expectSelect/expectInsert/expectUpdate/expectDelete` (matched by table + operation + optional eq column).
@@ -21,8 +21,8 @@ cd Leave-managment/emids-leave-portal && npm run test:watch
 ## E2E tests (Playwright against the REAL hosted Supabase)
 
 ```bash
-cd Leave-managment/emids-leave-portal && npm run e2e            # needs seeded users
-cd Leave-managment/emids-leave-portal && npx playwright test tests/e2e/apply-leave.spec.js   # one spec
+cd Leave-managment/emids-leave-portal/frontend && npm run e2e            # needs seeded users
+cd Leave-managment/emids-leave-portal/frontend && npx playwright test tests/e2e/apply-leave.spec.js   # one spec
 ```
 
 - The config boots its own Vite dev server on **5180** (`reuseExistingServer: true`), `workers: 1` so mutating specs never race.
@@ -33,7 +33,7 @@ cd Leave-managment/emids-leave-portal && npx playwright test tests/e2e/apply-lea
 
 The hosted DB is shared. Etiquette encoded in the specs:
 
-- **apply-leave** — creates a marked `[e2e]` request ~60 days out (the DB rejects overlapping Pending/Approved date ranges), then cancels it in-test. The Cancelled row remains in history; reseed with `supabase/schema.sql` + `seed.sql` to wipe.
+- **apply-leave** — creates a marked `[e2e]` request ~60 days out (the DB rejects overlapping Pending/Approved date ranges), then cancels it in-test. The Cancelled row remains in history; reseed with `backend/supabase/schema.sql` + `seed.sql` to wipe.
 - **holidays** — picks one optional holiday and unpicks it (fully reversible).
 - **leave-requests / staff redirect** — skipped automatically when the staff account isn't provisioned. Approve decisions are irreversible, so the spec only decides requests created inside the test.
 - **separation** — stops at the confirm modal (a submitted separation is HR-visible with no UI undo).

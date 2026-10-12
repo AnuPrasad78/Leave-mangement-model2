@@ -5,20 +5,20 @@ description: Bootstrap or verify the hosted Supabase project behind the portal �
 
 # Supabase setup for the leave portal
 
-The backend is a hosted Supabase project (Postgres + Auth + RLS). SQL runs in the dashboard SQL editor; user seeding runs locally.
+The backend is a hosted Supabase project (Postgres + Auth + RLS). SQL runs in the dashboard SQL editor; user seeding runs locally. The backend definition lives in `backend/supabase/` (repo-relative); the seeding tool lives in `frontend/scripts/` — Node resolves its deps from the frontend's `node_modules`.
 
 ## Fresh install (order matters)
 
 In the dashboard SQL editor:
 
-1. `supabase/schema.sql` — tables, enums, RLS, SECURITY DEFINER helpers, triggers.
-2. `supabase/seed.sql` — demo data (re-runnable: upserts employees/leave types/holidays/balances/sample requests).
+1. `backend/supabase/schema.sql` — tables, enums, RLS, SECURITY DEFINER helpers, triggers.
+2. `backend/supabase/seed.sql` — demo data (re-runnable: upserts employees/leave types/holidays/balances/sample requests).
 3. **Skip** `patch-001-*.sql` and `patch-002-*.sql` on fresh installs — schema.sql already contains their fixes; run them only on installs created before those dates.
 
 Then create the auth users (the `handle_new_user` trigger binds them to the seeded employee rows by email):
 
 ```bash
-cd Leave-managment/emids-leave-portal
+cd Leave-managment/emids-leave-portal/frontend
 SUPABASE_URL=https://<ref>.supabase.co \
 SUPABASE_SERVICE_ROLE_KEY=<secret-key> \
 node scripts/seed-users.mjs
@@ -36,7 +36,7 @@ node scripts/seed-users.mjs
 - `optional_picks_max_three` — max 3 optional-holiday picks per employee/country/year. Client mirror: `MAX_PICKS` in `src/constants.js`, friendly wording via `services/holidays.js isPickCapError` (matches code P0001 / 'optional holiday'), never on raw regex against the live error.
 - Keep DB enums and `src/constants.js` (STATUSES/MODES/ROLES) in sync — the constants test pins them.
 
-## Env contract (`.env.local`, gitignored; see `.env.example`)
+## Env contract (`.env.local` in `frontend/`, gitignored; see `frontend/.env.example`)
 
 - `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — the web app client.
 - `SUPABASE_SERVICE_ROLE_KEY` — server-side only (seed script + possible e2e cleanup). If it stops working ("Unregistered API key"), rotate it in dashboard → Settings → API keys and paste the new one; never commit it and never prefix it with `VITE_`.
