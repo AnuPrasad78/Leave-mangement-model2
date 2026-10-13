@@ -42,7 +42,9 @@ export default [
       // Pre-existing scrim/backdrop click handlers get proper dialog semantics in the
       // component-library phase; flip these back to error once ConfirmModal/useDismiss land.
       'jsx-a11y/click-events-have-key-events': 'warn',
-      'jsx-a11y/no-static-element-interactions': 'warn'
+      'jsx-a11y/no-static-element-interactions': 'warn',
+      // underscore-prefixed parameters are the repo's "kept-for-contract" convention
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
     }
   },
   prettier
