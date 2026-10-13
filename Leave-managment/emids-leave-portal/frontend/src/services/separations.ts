@@ -1,8 +1,8 @@
-import { supabase } from '../lib/supabase'
-import { normalizeSupabaseError, withServiceErrors } from './errors'
-import type { SeparationRequestsInsert, ServicedError } from '../types/models'
+import { apiRequest } from './apiClient'
+import { withServiceErrors } from './errors'
+import type { ServicedError } from '../types/models'
 
-export async function createSeparationRequest({ employee_id, last_working_day, reason, remarks }: {
+export async function createSeparationRequest({ last_working_day, reason, remarks }: {
   // employee_id may be undefined when the profile never resolved — JSON.stringify
   // drops the key and the DB NOT NULL violation surfaces as the normalized error.
   employee_id: string | null | undefined
@@ -13,9 +13,11 @@ export async function createSeparationRequest({ employee_id, last_working_day, r
   return withServiceErrors(
     'separation request',
     async () => {
-      const payload = { employee_id, last_working_day, reason, remarks } as SeparationRequestsInsert
-      const { error } = await supabase.from('separation_requests').insert(payload)
-      return { error: normalizeSupabaseError(error, 'separation request') }
+      await apiRequest('/separation-requests', {
+        method: 'POST',
+        body: JSON.stringify({ last_working_day, reason, remarks }),
+      })
+      return { error: null }
     },
     (error) => ({ error }),
     false,

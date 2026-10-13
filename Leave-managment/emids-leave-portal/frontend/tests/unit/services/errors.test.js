@@ -1,10 +1,10 @@
-import { normalizeSupabaseError } from '../../../src/services/errors'
+import { normalizeServiceError } from '../../../src/services/errors'
 
 describe('services/errors', () => {
-  it('wraps a supabase error into code + friendly userMessage', () => {
-    const n = normalizeSupabaseError({ message: 'You can choose only 3 optional holidays per year', code: 'P0001' })
+  it('wraps an API error into code + friendly userMessage', () => {
+    const n = normalizeServiceError({ message: 'You can choose only 3 optional holidays per year', code: 409 })
     expect(n).toEqual({
-      code: 'P0001',
+      code: 409,
       context: '',
       userMessage: 'You can choose only 3 optional holidays per year',
     })
@@ -17,7 +17,7 @@ describe('services/errors', () => {
   })
 
   it('replaces an overlapping leave request error with a friendly message', () => {
-    const n = normalizeSupabaseError(
+    const n = normalizeServiceError(
       { message: 'conflicting key value violates exclusion constraint "leave_requests_no_overlap"', code: '23503' },
       'submit request'
     )
@@ -25,8 +25,8 @@ describe('services/errors', () => {
   })
 
   it('survives missing fields', () => {
-    expect(normalizeSupabaseError(null)).toBeNull()
-    expect(normalizeSupabaseError({}).userMessage).toBe('Something went wrong. Please try again.')
-    expect(normalizeSupabaseError({ message: 'boom', code: undefined }).code).toBe('unknown')
+    expect(normalizeServiceError(null)).toBeNull()
+    expect(normalizeServiceError({}).userMessage).toBe('Something went wrong. Please try again.')
+    expect(normalizeServiceError({ message: 'boom', code: undefined }).code).toBe('unknown')
   })
 })

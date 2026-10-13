@@ -1,11 +1,8 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/lib/supabase', async () => {
-  const { mockDb } = await import('../mocks/supabase')
-  return { supabase: mockDb }
-})
+vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
 
-import { mockDb } from '../mocks/supabase'
+import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
 import {
   fetchMine,
   fetchTeam,
@@ -15,7 +12,7 @@ import {
   decideMany,
 } from '../../../src/services/leaveRequests'
 
-beforeEach(() => mockDb.reset())
+beforeEach(() => resetApiClientMock())
 
 const row = {
   request_no: 'LV-2026-00007',
@@ -33,54 +30,61 @@ const row = {
 
 describe('services/leaveRequests', () => {
   it('fetches my requests newest-first', async () => {
-    mockDb.expectSelect('leave_requests', { eq: ['employee_id', 'e1'], data: [row] })
+    apiRequest.mockResolvedValueOnce([row])
     const { rows, error } = await fetchMine('e1')
     expect(error).toBeNull()
     expect(rows).toEqual([row])
+    expect(apiRequest).toHaveBeenCalledWith('/leave-requests/mine')
   })
 
-  it('fetches the team queue in a single in() query', async () => {
-    mockDb.expectSelect('leave_requests', { data: [row] })
+  it('fetches the authenticated manager team queue', async () => {
+    apiRequest.mockResolvedValueOnce([row])
     const { rows, error } = await fetchTeam(['a', 'b'])
     expect(error).toBeNull()
     expect(rows).toEqual([row])
+    expect(apiRequest).toHaveBeenCalledWith('/leave-requests/team')
   })
 
-  it('inserts a request and returns its request_no', async () => {
-    mockDb.expectInsert('leave_requests', { data: { request_no: 'LV-2026-00099' } })
-    const { requestNo, error } = await insertMine({ employee_id: 'e1', leave_type_id: 'lt1', start_date: '2026-03-02', end_date: '2026-03-06', days: 5, mode: 'Full Day', reason: 'x', requested_on: '2026-02-20' })
+  it('inserts a request using its leave-type name', async () => {
+    apiRequest.mockResolvedValueOnce({ requestNo: 'LV-2026-00099' })
+    const payload = { type: 'Paid Time Off', from: '2026-03-02', to: '2026-03-06', days: 5, mode: 'Full Day', reason: 'x', requestedOn: '2026-02-20' }
+    const { requestNo, error } = await insertMine(payload)
     expect(error).toBeNull()
     expect(requestNo).toBe('LV-2026-00099')
+    expect(apiRequest).toHaveBeenCalledWith('/leave-requests', { method: 'POST', body: JSON.stringify(payload) })
   })
 
   it('surfaces insert failures as normalized errors', async () => {
-    mockDb.expectInsert('leave_requests', { error: { message: 'not enough balance', code: '23514' } })
-    const { requestNo, error } = await insertMine({ employee_id: 'e1' })
+    apiRequest.mockRejectedValueOnce(Object.assign(new Error('not enough balance'), { status: 409 }))
+    const { requestNo, error } = await insertMine({ type: 'PTO', from: '2026-03-02', to: '2026-03-02', days: 1, mode: 'Full Day', reason: 'x', requestedOn: '2026-02-20' })
     expect(requestNo).toBeNull()
-    expect(error.code).toBe('23514')
+    expect(error.code).toBe(409)
     expect(error.userMessage).toBe('not enough balance')
   })
 
-  it('cancels only own pending request', async () => {
-    mockDb.expectUpdate('leave_requests')
+  it('cancels the authenticated user\'s pending request', async () => {
+    apiRequest.mockResolvedValueOnce({ ok: true })
     const { error } = await cancelMine('LV-1', 'e1')
     expect(error).toBeNull()
+    expect(apiRequest).toHaveBeenCalledWith('/leave-requests/LV-1/cancel', { method: 'POST' })
   })
 
-  it('records a decision with approver + timestamp', async () => {
-    mockDb.expectUpdate('leave_requests')
+  it('records a decision without client-supplied approver identity', async () => {
+    apiRequest.mockResolvedValueOnce({ ok: true })
     const { error } = await decide('LV-1', 'Approved', 'mgr-1')
     expect(error).toBeNull()
+    expect(apiRequest).toHaveBeenCalledWith('/leave-requests/LV-1/decision', { method: 'POST', body: '{"decision":"Approved"}' })
   })
 
-  it('bulk-decides through a single update', async () => {
-    mockDb.expectUpdate('leave_requests')
+  it('bulk-decides through the manager endpoint', async () => {
+    apiRequest.mockResolvedValueOnce({ ok: true })
     const { error } = await decideMany(['LV-1', 'LV-2'], 'Approved', 'mgr-1')
     expect(error).toBeNull()
+    expect(apiRequest).toHaveBeenCalledWith('/leave-requests/bulk-decision', { method: 'POST', body: '{"request_nos":["LV-1","LV-2"],"decision":"Approved"}' })
   })
 
-  it('passes DB guard violations through', async () => {
-    mockDb.expectUpdate('leave_requests', { error: { message: 'You can only cancel your own pending request' } })
+  it('passes API authorization violations through', async () => {
+    apiRequest.mockRejectedValueOnce(Object.assign(new Error('You can only cancel your own pending request'), { status: 403 }))
     const { error } = await cancelMine('LV-1', 'e2')
     expect(error.userMessage).toBe('You can only cancel your own pending request')
   })

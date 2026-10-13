@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 from typing import Literal
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -74,4 +75,4 @@ class EmployeeOutput(BaseModel):
     delivery_partner_name: str | None
     location: str | None
     system_role: str
-    created_at: str | None = None
+    created_at: datetime | None = None

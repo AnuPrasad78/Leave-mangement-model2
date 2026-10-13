@@ -1,11 +1,8 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/lib/supabase', async () => {
-  const { mockDb } = await import('../mocks/supabase')
-  return { supabase: mockDb }
-})
+vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
 
-import { mockDb } from '../mocks/supabase'
+import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
 import {
   fetchAllHolidays,
   fetchOptionalPicks,
@@ -14,35 +11,36 @@ import {
   isPickCapError,
 } from '../../../src/services/holidays'
 
-beforeEach(() => mockDb.reset())
+beforeEach(() => resetApiClientMock())
 
 describe('services/holidays', () => {
   it('fetches all holiday rows date-ordered', async () => {
-    mockDb.expectSelect('holidays', { data: [{ id: 'h1', name: 'Diwali' }] })
+    apiRequest.mockResolvedValueOnce([{ id: 1, name: 'Diwali' }])
     const { rows, error } = await fetchAllHolidays()
     expect(error).toBeNull()
-    expect(rows).toEqual([{ id: 'h1', name: 'Diwali' }])
+    expect(rows).toEqual([{ id: 1, name: 'Diwali' }])
+    expect(apiRequest).toHaveBeenCalledWith('/holidays')
   })
 
   it('fetches picked holiday ids for an employee', async () => {
-    mockDb.expectSelect('optional_holiday_picks', { eq: ['employee_id', 'e1'], data: [{ holiday_id: 'h1' }, { holiday_id: 'h2' }] })
+    apiRequest.mockResolvedValueOnce([1, 2])
     const { holidayIds, error } = await fetchOptionalPicks('e1')
     expect(error).toBeNull()
-    expect(holidayIds).toEqual(['h1', 'h2'])
+    expect(holidayIds).toEqual([1, 2])
   })
 
   it('adds and removes picks', async () => {
-    mockDb.expectInsert('optional_holiday_picks')
-    expect((await addOptionalPick('e1', 'h1')).error).toBeNull()
-    mockDb.expectDelete('optional_holiday_picks')
-    expect((await removeOptionalPick('e1', 'h1')).error).toBeNull()
+    apiRequest.mockResolvedValueOnce({ ok: true })
+    expect((await addOptionalPick('e1', 1)).error).toBeNull()
+    expect(apiRequest).toHaveBeenLastCalledWith('/holidays/picks', { method: 'POST', body: '{"holiday_id":1}' })
+    apiRequest.mockResolvedValueOnce({ ok: true })
+    expect((await removeOptionalPick('e1', 1)).error).toBeNull()
+    expect(apiRequest).toHaveBeenLastCalledWith('/holidays/picks/1', { method: 'DELETE' })
   })
 
   it('recognizes the pick-cap trigger error without string-matching pages', async () => {
-    mockDb.expectInsert('optional_holiday_picks', {
-      error: { message: 'You can choose only 3 optional holidays per year', code: 'P0001' },
-    })
-    const { error } = await addOptionalPick('e1', 'h9')
+    apiRequest.mockRejectedValueOnce(Object.assign(new Error('You can choose only 3 optional holidays per year'), { status: 409 }))
+    const { error } = await addOptionalPick('e1', 9)
     expect(error).not.toBeNull()
     expect(isPickCapError(error)).toBe(true)
     expect(isPickCapError({ message: 'some other failure' })).toBe(false)

@@ -1,18 +1,15 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/lib/supabase', async () => {
-  const { mockDb } = await import('../mocks/supabase')
-  return { supabase: mockDb }
-})
+vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
 
-import { mockDb } from '../mocks/supabase'
+import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
 import { createSeparationRequest } from '../../../src/services/separations'
 
-beforeEach(() => mockDb.reset())
+beforeEach(() => resetApiClientMock())
 
 describe('services/separations', () => {
   it('inserts the separation request payload', async () => {
-    mockDb.expectInsert('separation_requests')
+    apiRequest.mockResolvedValueOnce({ ok: true })
     const { error } = await createSeparationRequest({
       employee_id: 'e1',
       last_working_day: '2026-06-30',
@@ -20,10 +17,14 @@ describe('services/separations', () => {
       remarks: null,
     })
     expect(error).toBeNull()
+    expect(apiRequest).toHaveBeenCalledWith('/separation-requests', {
+      method: 'POST',
+      body: JSON.stringify({ last_working_day: '2026-06-30', reason: 'Higher Studies', remarks: null }),
+    })
   })
 
   it('normalizes insert failures', async () => {
-    mockDb.expectInsert('separation_requests', { error: { message: 'check failure', code: '23514' } })
+    apiRequest.mockRejectedValueOnce(Object.assign(new Error('check failure'), { status: 422 }))
     const { error } = await createSeparationRequest({ employee_id: 'e1', last_working_day: '2026-06-30', reason: 'x', remarks: null })
     expect(error.userMessage).toBe('check failure')
   })

@@ -1,7 +1,5 @@
-import { supabase } from '../lib/supabase'
 import { MAX_PICKS } from '../constants'
-import { fetchOptionalPicks } from './holidays'
-import { normalizeSupabaseError, withServiceErrors } from './errors'
+import { addOptionalPick, fetchOptionalPicks } from './holidays'
 import type { HolidaysRow, OptionalHolidayPickInsert, ServicedError } from '../types/models'
 import type { LegacyHolidayData } from '../data/legacyHolidayData'
 
@@ -73,31 +71,29 @@ export async function migrateLegacyPicks({ employeeId, all, pickedIds, legacyDat
   })
 
   if (toInsert.length) {
-    const write = await withServiceErrors(
-      'legacy pick migration',
-      async () => {
-        const { error } = await supabase.from('optional_holiday_picks').insert(toInsert)
-        return { error: normalizeSupabaseError(error, 'legacy pick migration') }
-      },
-      (error) => ({ error }),
-      false,
-      true
-    )
+    let writeError: ServicedError | null = null
+    for (const pick of toInsert) {
+      const write = await addOptionalPick(employeeId, pick.holiday_id)
+      if (write.error) {
+        writeError = write.error
+        break
+      }
+    }
     const refresh = await fetchOptionalPicks(employeeId)
     const refreshed = new Set(refresh.holidayIds)
     const complete = toInsert.every((pick) => refreshed.has(pick.holiday_id))
-    if (write.error && (!write.error.outcomeUnknown || !complete)) {
-      return { inserted: null, pickedIds: refresh.holidayIds, error: write.error }
+    if (writeError && (!writeError.outcomeUnknown || !complete)) {
+      return { inserted: null, pickedIds: refresh.holidayIds, error: writeError }
     }
-    if (refresh.error && !write.error) {
+    if (refresh.error && !writeError) {
       return {
         inserted: toInsert,
         pickedIds: [...new Set([...pickedIds, ...toInsert.map((pick) => pick.holiday_id)])],
         error: refresh.error,
       }
     }
-    if (refresh.error && write.error) {
-      return { inserted: null, pickedIds, error: write.error }
+    if (refresh.error && writeError) {
+      return { inserted: null, pickedIds, error: writeError }
     }
     try {
       storage.removeItem(LEGACY_STORAGE_KEY)

@@ -1,14 +1,11 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/lib/supabase', async () => {
-  const { mockDb } = await import('../mocks/supabase')
-  return { supabase: mockDb }
-})
+vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
 
-import { mockDb } from '../mocks/supabase'
+import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
 import { migrateLegacyPicks } from '../../../src/services/legacyMigration'
 
-beforeEach(() => mockDb.reset())
+beforeEach(() => resetApiClientMock())
 
 const storage = (raw) => {
   const mem = new Map(raw ? [['emids-optional-holidays', raw]] : [])
@@ -26,12 +23,11 @@ describe('services/legacyMigration', () => {
 
   it('maps legacy per-cell indices to holiday ids and inserts them', async () => {
     const all = [
-      { id: 'hA', country: 'India', year: 2025, kind: 'optional', holiday_date: '2025-11-01', name: 'Kannada Rajyotsava' },
-      { id: 'hB', country: 'USA', year: 2025, kind: 'optional', holiday_date: '2025-11-05', name: 'Diwali' },
+      { id: 1, country: 'India', year: 2025, kind: 'optional', holiday_date: '2025-11-01', name: 'Kannada Rajyotsava' },
+      { id: 2, country: 'USA', year: 2025, kind: 'optional', holiday_date: '2025-11-05', name: 'Diwali' },
     ]
     const legacyData = { India: { optional: { 2025: [{ date: '2025-11-01', name: 'Kannada Rajyotsava' }] } } }
-    mockDb.expectInsert('optional_holiday_picks', { data: null })
-    mockDb.expectSelect('optional_holiday_picks', { eq: ['employee_id', 'e1'], data: [{ holiday_id: 'hA' }] })
+    apiRequest.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce([1])
 
     const { inserted, pickedIds } = await migrateLegacyPicks({
       employeeId: 'e1',
@@ -40,21 +36,20 @@ describe('services/legacyMigration', () => {
       legacyData,
       storage: storage('{"India|2025":[0]}'),
     })
-    expect(inserted).toEqual([{ employee_id: 'e1', holiday_id: 'hA' }])
-    expect(pickedIds).toEqual(['hA'])
+    expect(inserted).toEqual([{ employee_id: 'e1', holiday_id: 1 }])
+    expect(pickedIds).toEqual([1])
   })
 
   it('skips candidates beyond the remaining per-year budget', async () => {
     const all = [
-      { id: 'hA', country: 'India', year: 2025, kind: 'optional', holiday_date: '2025-11-01', name: 'A' },
-      { id: 'hB', country: 'India', year: 2025, kind: 'optional', holiday_date: '2025-12-25', name: 'B' },
-      { id: 'hC', country: 'India', year: 2025, kind: 'optional', holiday_date: '2026-01-14', name: 'C' },
-      { id: 'hD', country: 'India', year: 2025, kind: 'optional', holiday_date: '2026-01-26', name: 'D' },
+      { id: 1, country: 'India', year: 2025, kind: 'optional', holiday_date: '2025-11-01', name: 'A' },
+      { id: 2, country: 'India', year: 2025, kind: 'optional', holiday_date: '2025-12-25', name: 'B' },
+      { id: 3, country: 'India', year: 2025, kind: 'optional', holiday_date: '2026-01-14', name: 'C' },
+      { id: 4, country: 'India', year: 2025, kind: 'optional', holiday_date: '2026-01-26', name: 'D' },
     ]
     const optional = all.map((x) => ({ date: x.holiday_date, name: x.name }))
     const legacyData = { India: { optional: { 2025: optional } } }
-    mockDb.expectInsert('optional_holiday_picks', { data: null })
-    mockDb.expectSelect('optional_holiday_picks', { eq: ['employee_id', 'e1'], data: [{ holiday_id: 'hA' }, { holiday_id: 'hB' }, { holiday_id: 'hC' }] })
+    apiRequest.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce([1, 2, 3])
 
     const { inserted } = await migrateLegacyPicks({
       employeeId: 'e1',
