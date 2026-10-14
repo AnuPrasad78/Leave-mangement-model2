@@ -26,11 +26,20 @@ services:
       ACCESS_TOKEN_MINUTES: "720"
       CORS_ORIGINS: http://localhost:80,http://127.0.0.1:80,http://localhost:5173,http://127.0.0.1:5173
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:16686:16686"
 
   frontend:
     build:

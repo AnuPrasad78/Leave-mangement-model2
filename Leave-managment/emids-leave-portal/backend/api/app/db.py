@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(48))
     ACCESS_TOKEN_MINUTES: int = 720
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = ""
     DEMO_PASSWORD: str | None = None
 
     model_config = SettingsConfigDict(env_file=Path(__file__).resolve().parents[1] / ".env", extra="ignore")
