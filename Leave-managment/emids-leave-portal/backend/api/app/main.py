@@ -28,6 +28,16 @@ app.add_middleware(
 )
 app.include_router(router)
 
+
+@app.middleware("http")
+async def add_trace_id(request, call_next):
+    response = await call_next(request)
+    traceparent = request.headers.get("traceparent", "")
+    parts = traceparent.split("-")
+    if len(parts) == 4 and len(parts[1]) == 32 and parts[1].strip("0123456789abcdef") == "":
+        response.headers["x-trace-id"] = parts[1]
+    return response
+
 if settings.OTEL_EXPORTER_OTLP_ENDPOINT:
     provider = TracerProvider(resource=Resource.create({"service.name": "leave-portal-api"}))
     provider.add_span_processor(

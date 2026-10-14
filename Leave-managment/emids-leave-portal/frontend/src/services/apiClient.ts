@@ -19,12 +19,27 @@ export function clearAccessToken(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY)
 }
 
+function randomHex(byteCount: number): string {
+  const bytes = new Uint8Array(byteCount)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+function buildTraceparent(): string | null {
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') return null
+  return `00-${randomHex(16)}-${randomHex(8)}-01`
+}
+
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
   const token = getAccessToken()
   if (token) headers.set('Authorization', `Bearer ${token}`)
   if (init.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
+  }
+  if (!headers.has('traceparent')) {
+    const traceparent = buildTraceparent()
+    if (traceparent) headers.set('traceparent', traceparent)
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers })
