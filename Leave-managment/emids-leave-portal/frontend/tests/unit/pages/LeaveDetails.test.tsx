@@ -55,4 +55,40 @@ describe('pages/LeaveDetails', () => {
     expect(screen.getByTitle('Cancel request')).toBeInTheDocument()
     expect(screen.queryAllByTitle('Cancel request')).toHaveLength(1)
   })
+
+  it('opens the selected pending request and submits edited values', async () => {
+    const user = userEvent.setup()
+    const updateMine = vi.fn(async () => true)
+    render(
+      <MemoryRouter>
+        <AuthContext.Provider
+          value={{
+            mine: [row('LV-1', 'Pending')],
+            cancelMine: vi.fn(async () => {}),
+            updateMine,
+            leaveTypes: ['Paid Time Off'],
+            balances: null,
+            setToast: vi.fn(),
+            CURRENT_YEAR: 2026,
+          } as unknown as AuthContextValue}
+        >
+          <LeaveDetails />
+        </AuthContext.Provider>
+      </MemoryRouter>
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Edit request LV-1' }))
+    expect(screen.getByLabelText(/From Date/)).toHaveValue('2026-03-02')
+    await user.clear(screen.getByLabelText(/Reason/))
+    await user.type(screen.getByLabelText(/Reason/), 'Updated family trip')
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() =>
+      expect(updateMine).toHaveBeenCalledWith('LV-1', expect.objectContaining({
+        from: '2026-03-02',
+        to: '2026-03-06',
+        reason: 'Updated family trip',
+      }))
+    )
+  })
 })

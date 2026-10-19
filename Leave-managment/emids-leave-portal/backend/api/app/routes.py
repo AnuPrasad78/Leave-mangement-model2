@@ -25,10 +25,12 @@ from app.schemas import (
     DecisionInput,
     EmployeeOutput,
     LeaveRequestInput,
+    LeaveRequestUpdateInput,
     LoginInput,
     OptionalPickInput,
     SeparationInput,
     TokenOutput,
+
 )
 from app.security import create_access_token, get_current_user, verify_password
 
@@ -171,6 +173,79 @@ def create_leave_request(
     session.refresh(request)
     return {"requestNo": request.request_no}
 
+@router.put("/leave-requests/{request_no}")
+def update_leave_request(
+    request_no: str,
+    payload: LeaveRequestUpdateInput,
+    employee: Employee = Depends(current_employee),
+    session: Session = Depends(get_session),
+) -> dict[str, bool]:
+    request = session.scalar(
+        select(LeaveRequest)
+        .where(
+            LeaveRequest.request_no == request_no,
+            LeaveRequest.employee_id == employee.id,
+        )
+        .with_for_update()
+    )
+
+    if request is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+
+    if request.status != LeaveStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only pending requests can be edited",
+        )
+
+    leave_type = session.scalar(
+        select(LeaveType).where(
+            LeaveType.name == payload.type,
+            LeaveType.is_active.is_(True),
+        )
+    )
+    if leave_type is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Unknown or inactive leave type",
+        )
+
+    if payload.days <= 0 or payload.to_date < payload.from_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid leave dates or day count",
+        )
+
+    if payload.mode != LeaveMode.FULL_DAY and (
+        payload.from_date != payload.to_date or payload.days != Decimal("0.5")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Half-day requests must be a single 0.5-day date",
+        )
+
+    request.leave_type_id = leave_type.id
+    request.start_date = payload.from_date
+    request.end_date = payload.to_date
+    request.days = payload.days
+    request.mode = payload.mode
+    request.reason = payload.reason or "(no reason given)"
+
+    try:
+        session.commit()
+    except Exception as error:
+        session.rollback()
+        if "leave_requests_no_active_overlap" in str(error) or "exclusion constraint" in str(error).lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Dates overlap another active request",
+            ) from error
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Could not update leave request",
+        ) from error
+
+    return {"ok": True}
 
 def update_balance_for_decision(session: Session, request: LeaveRequest, decision: LeaveStatus) -> None:
     leave_type = session.get(LeaveType, request.leave_type_id)

@@ -126,6 +126,15 @@
 
 .icon-act { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--hairline); background: var(--surface); color: var(--red-deep); transition: background 0ms; }
 .icon-act:hover:not(:disabled) { background: var(--red-wash); border-color: var(--red); }
+.request-edit { border: 1px solid var(--hairline); background: var(--surface); color: var(--teal-deep); padding: 6px 9px; font-size: 11px; opacity: 0; transition: background 0ms; }
+.request-edit:hover:not(:disabled) { background: var(--teal-wash); border-color: var(--teal); }
+.table tbody tr:hover .request-edit,
+.table tbody tr:focus-within .request-edit { opacity: 1; }
+.edit-request { max-width: 860px; margin-bottom: 24px; }
+.edit-request__title { margin: 0 0 12px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+@media (hover: none) {
+  .request-edit { opacity: 1; }
+}
 
 .req-id { font-family: var(--mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.05em; }
 .req-name b { display: block; font-weight: 600; }

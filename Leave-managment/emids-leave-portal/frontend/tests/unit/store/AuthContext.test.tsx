@@ -30,6 +30,7 @@ vi.mock('../../../src/services/employees', () => ({
 const fetchMine: Mock = vi.fn(async () => ({ rows: [], error: null }))
 const fetchTeam: Mock = vi.fn(async () => ({ rows: [], error: null }))
 const insertMine: Mock = vi.fn((..._args: unknown[]) => undefined)
+const updateMine: Mock = vi.fn((..._args: unknown[]) => undefined)
 const cancelMine: Mock = vi.fn((..._args: unknown[]) => undefined)
 const decide: Mock = vi.fn((..._args: unknown[]) => undefined)
 const decideMany: Mock = vi.fn((..._args: unknown[]) => undefined)
@@ -37,6 +38,7 @@ vi.mock('../../../src/services/leaveRequests', () => ({
   fetchMine: (...args: unknown[]) => fetchMine(...args),
   fetchTeam: (...args: unknown[]) => fetchTeam(...args),
   insertMine: (...args: unknown[]) => insertMine(...args),
+  updateMine: (...args: unknown[]) => updateMine(...args),
   cancelMine: (...args: unknown[]) => cancelMine(...args),
   decide: (...args: unknown[]) => decide(...args),
   decideMany: (...args: unknown[]) => decideMany(...args),
@@ -148,6 +150,29 @@ describe('store/AuthContext', () => {
     expect(ctxOf(spy).toast).toMatchObject({ msg: 'Request cancelled', kind: 'ok' })
     expect(fetchMine).toHaveBeenLastCalledWith('e-me')
     expect(fetchLatestBalances).toHaveBeenLastCalledWith('e-me')
+  })
+
+  it('updates a pending request and refreshes the current user requests', async () => {
+    await gotoSignedIn()
+    const spy = renderStore()
+    await waitCtx(spy, (ctx) => ctx.authReady && ctx.signedIn)
+
+    updateMine.mockResolvedValueOnce({ error: null })
+    let updated = false
+    await act(async () => {
+      updated = await ctxOf(spy).updateMine('LV-1', {
+        type: 'Paid Time Off',
+        from: '2026-03-03',
+        to: '2026-03-04',
+        days: 2,
+        mode: 'Full Day',
+        reason: 'Updated reason',
+      })
+    })
+
+    expect(updated).toBe(true)
+    expect(updateMine).toHaveBeenCalledWith('LV-1', expect.objectContaining({ reason: 'Updated reason' }))
+    expect(fetchMine).toHaveBeenLastCalledWith('e-me')
   })
 
   it("rejecting a request toasts in red and approving in ok", async () => {

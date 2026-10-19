@@ -11,13 +11,13 @@ const mine: LeaveRequestRow[] = [
   { id: 'LV-3', mode: 'Full Day', type: 'Work From Home', from: '2026-12-10', to: '2026-12-10', days: 1, reason: 'Home broadband outage', requestedOn: '2026-10-03', status: STATUSES.Rejected },
 ]
 
-function setup({ cancelMine = vi.fn(async () => undefined), mine: rows = mine }: { cancelMine?: (id: string) => Promise<void>; mine?: LeaveRequestRow[] } = {}) {
+function setup({ cancelMine = vi.fn(async () => undefined), onEdit = vi.fn(), mine: rows = mine }: { cancelMine?: (id: string) => Promise<void>; onEdit?: (row: LeaveRequestRow) => void; mine?: LeaveRequestRow[] } = {}) {
   render(
     <MemoryRouter>
-      <LeaveRequestHistory mine={rows} cancelMine={cancelMine} yearLabel={2026} />
+      <LeaveRequestHistory mine={rows} cancelMine={cancelMine} onEdit={onEdit} yearLabel={2026} />
     </MemoryRouter>
   )
-  return { cancelMine }
+  return { cancelMine, onEdit }
 }
 
 describe('components/feature/LeaveRequestHistory', () => {
@@ -54,6 +54,15 @@ describe('components/feature/LeaveRequestHistory', () => {
     expect(screen.getByTitle('Cancel request')).toBeInTheDocument()
     expect(screen.getAllByTitle('Cancel request')).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Cancel request' })).toBeInTheDocument()
+  })
+
+  it('offers edit only for pending requests and passes the selected request', async () => {
+    const user = userEvent.setup()
+    const { onEdit } = setup()
+    const editButtons = screen.getAllByRole('button', { name: /Edit request/ })
+    expect(editButtons).toHaveLength(1)
+    await user.click(editButtons[0])
+    expect(onEdit).toHaveBeenCalledWith(mine[0])
   })
 
   it('falls back with a raise-one link when there are no requests', () => {

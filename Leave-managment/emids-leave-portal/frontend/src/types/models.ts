@@ -130,6 +130,7 @@ export interface LeaveRequestInput {
   requestedOn: string
 }
 
+export type LeaveRequestUpdateInput = Omit<LeaveRequestInput, 'requestedOn'>
 /* ---------- view models exposed by the store / components ---------- */
 
 export interface LeaveRequestRow {

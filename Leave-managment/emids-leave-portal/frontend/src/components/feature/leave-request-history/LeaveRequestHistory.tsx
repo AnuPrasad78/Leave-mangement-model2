@@ -18,10 +18,11 @@ const QUICK_LABELS: Record<string, string> = {
 export interface LeaveRequestHistoryProps {
   mine: LeaveRequestRow[]
   cancelMine: (id: string) => Promise<void>
+  onEdit: (request: LeaveRequestRow) => void
   yearLabel: number
 }
 
-export default function LeaveRequestHistory({ mine, cancelMine, yearLabel }: LeaveRequestHistoryProps) {
+export default function LeaveRequestHistory({ mine, cancelMine, onEdit, yearLabel }: LeaveRequestHistoryProps) {
   const [confirming, setConfirming] = useState<string | null>(null)
 
   const strip = useMemo<[string, number][]>(() => {
@@ -47,12 +48,23 @@ export default function LeaveRequestHistory({ mine, cancelMine, yearLabel }: Lea
     { label: 'Requested', cellClass: 'nowrap', cell: (r) => fmtDate(r.requestedOn) },
     { label: 'Status', cell: (r) => <StatusPill status={r.status} /> },
     {
-      label: 'Cancel',
+      label: 'Actions',
       cell: (r) =>
         r.status === STATUSES.Pending ? (
-          <button className="icon-act" title="Cancel request" onClick={() => setConfirming(r.id)}>
-            <IconBan size={15} />
-          </button>
+          <div className="row-actions">
+            <button
+              type="button"
+              className="request-edit"
+              title="Edit request"
+              aria-label={`Edit request ${r.id}`}
+              onClick={() => onEdit(r)}
+            >
+              Edit
+            </button>
+            <button type="button" className="icon-act" title="Cancel request" onClick={() => setConfirming(r.id)}>
+              <IconBan size={15} />
+            </button>
+          </div>
         ) : (
           <span className="muted">—</span>
         ),

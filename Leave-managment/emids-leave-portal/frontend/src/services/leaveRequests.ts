@@ -1,6 +1,6 @@
 import { apiRequest } from './apiClient'
 import { withServiceErrors } from './errors'
-import type { LeaveRequestInput, LeaveRequestSelectRow, RequestDecision, ServicedError } from '../types/models'
+import type { LeaveRequestInput, LeaveRequestSelectRow, LeaveRequestUpdateInput, RequestDecision, ServicedError } from '../types/models'
 
 export async function fetchMine(_employeeId: string): Promise<{ rows: LeaveRequestSelectRow[]; error: ServicedError | null }> {
   return withServiceErrors(
@@ -41,7 +41,24 @@ export async function insertMine(payload: LeaveRequestInput): Promise<{ requestN
     true
   )
 }
-
+export async function updateMine(
+  requestNo: string,
+  payload: LeaveRequestUpdateInput
+): Promise<{ error: ServicedError | null }> {
+  return withServiceErrors(
+    'update request',
+    async () => {
+      await apiRequest(`/leave-requests/${encodeURIComponent(requestNo)}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      })
+      return { error: null }
+    },
+    (error) => ({ error }),
+    false,
+    true
+  )
+}
 export async function cancelMine(requestNo: string, _employeeId: string): Promise<{ error: ServicedError | null }> {
   return withServiceErrors(
     'cancel request',

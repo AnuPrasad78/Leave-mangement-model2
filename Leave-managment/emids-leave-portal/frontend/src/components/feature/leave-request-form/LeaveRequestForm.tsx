@@ -6,23 +6,25 @@ import type { RequestValidationErrors } from '../../../features/leave-requests/c
 import { isOverdrawn, remainingAfter } from '../../../features/balances/rules'
 import { todayISO } from '../../../utils/dates'
 import { MODES } from '../../../constants'
-import type { BalanceSummary, LeaveRequestInput, LeaveMode } from '../../../types/models'
+import type { BalanceSummary, LeaveRequestInput, LeaveRequestRow, LeaveRequestUpdateInput, LeaveMode } from '../../../types/models'
 
 export interface LeaveRequestFormProps {
   leaveTypes: string[]
   balances: BalanceSummary | null
-  addMine: (input: LeaveRequestInput) => Promise<string | null>
+  addMine?: (input: LeaveRequestInput) => Promise<string | null>
+  updateMine?: (id: string, input: LeaveRequestUpdateInput) => Promise<boolean>
+  editRequest?: LeaveRequestRow
   onSubmitted: (message: string) => void
   onError: (message: string) => void
   onCancel: () => void
 }
 
-export default function LeaveRequestForm({ leaveTypes, balances, addMine, onSubmitted, onError, onCancel }: LeaveRequestFormProps) {
-  const [type, setType] = useState('Paid Time Off')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
-  const [mode, setMode] = useState<LeaveMode>(MODES.Full)
-  const [reason, setReason] = useState('')
+export default function LeaveRequestForm({ leaveTypes, balances, addMine, updateMine, editRequest, onSubmitted, onError, onCancel }: LeaveRequestFormProps) {
+  const [type, setType] = useState(editRequest?.type ?? 'Paid Time Off')
+  const [from, setFrom] = useState(editRequest?.from ?? '')
+  const [to, setTo] = useState(editRequest?.to ?? '')
+  const [mode, setMode] = useState<LeaveMode>(editRequest?.mode ?? MODES.Full)
+  const [reason, setReason] = useState(editRequest?.reason ?? '')
   const [errors, setErrors] = useState<RequestValidationErrors>({})
 
   const days = useMemo(() => computeRequestDays({ from, to, mode }), [from, to, mode])
@@ -44,6 +46,14 @@ export default function LeaveRequestForm({ leaveTypes, balances, addMine, onSubm
     if (Object.keys(errs).length || !days) return
     setSubmitting(true)
     try {
+      if (editRequest) {
+        if (!updateMine) throw new Error('Request editing is unavailable. Please try again.')
+        const updated = await updateMine(editRequest.id, { type, from, to, days, mode, reason: reason.trim() })
+        if (!updated) return
+        onSubmitted(`${type} request updated · ${days} day(s)`)
+        return
+      }
+      if (!addMine) throw new Error('Request submission is unavailable. Please try again.')
       const id = await addMine({ type, from, to, days, mode, reason: reason.trim(), requestedOn: todayISO() })
       if (!id) return
       onSubmitted(`${type} request submitted · ${days} day(s)`)
@@ -127,12 +137,12 @@ export default function LeaveRequestForm({ leaveTypes, balances, addMine, onSubm
         </Button>
         <Button
           type="submit"
-          disabled={overdrawn || outcomeUnknown}
-          title={overdrawn ? 'Annual balance shows used beyond credited + opening — ask the People Success desk to correct the ledger first.' : undefined}
+          disabled={(!editRequest && overdrawn) || outcomeUnknown}
+          title={!editRequest && overdrawn ? 'Annual balance shows used beyond credited + opening — ask the People Success desk to correct the ledger first.' : undefined}
           busy={submitting}
-          busyLabel="Submitting…"
+          busyLabel={editRequest ? 'Saving…' : 'Submitting…'}
         >
-          Submit Request
+          {editRequest ? 'Save Changes' : 'Submit Request'}
         </Button>
       </div>
     </form>

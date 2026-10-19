@@ -29,6 +29,15 @@ class LeaveRequestInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+class LeaveRequestUpdateInput(BaseModel):
+    type: str
+    from_date: date = Field(alias="from")
+    to_date: date = Field(alias="to")
+    days: Decimal
+    mode: LeaveMode
+    reason: str
+
+    model_config = ConfigDict(populate_by_name=True)
 
 class DecisionInput(BaseModel):
     decision: Literal["Approved", "Rejected"]

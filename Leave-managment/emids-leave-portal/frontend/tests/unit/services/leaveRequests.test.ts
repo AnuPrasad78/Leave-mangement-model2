@@ -7,6 +7,7 @@ import {
   fetchMine,
   fetchTeam,
   insertMine,
+  updateMine,
   cancelMine,
   decide,
   decideMany,
@@ -52,6 +53,24 @@ describe('services/leaveRequests', () => {
     expect(error).toBeNull()
     expect(requestNo).toBe('LV-2026-00099')
     expect(apiRequest).toHaveBeenCalledWith('/leave-requests', { method: 'POST', body: JSON.stringify(payload) })
+  })
+
+  it('updates a pending request with the editable fields only', async () => {
+    apiRequest.mockResolvedValueOnce({ ok: true })
+    const payload = {
+      type: 'Paid Time Off',
+      from: '2026-03-03',
+      to: '2026-03-06',
+      days: 4,
+      mode: 'Full Day' as const,
+      reason: 'Updated trip',
+    }
+    const { error } = await updateMine('LV-2026-00007', payload)
+    expect(error).toBeNull()
+    expect(apiRequest).toHaveBeenCalledWith('/leave-requests/LV-2026-00007', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
   })
 
   it('surfaces insert failures as outcome-unknown for mutations', async () => {

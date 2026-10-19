@@ -5,7 +5,7 @@ import { getSession, subscribeToAuth, signInWithPassword, signOut as signOutClie
 import { fetchProfileByAuthId, fetchReportIds } from '../services/employees'
 import { fetchLatestBalances } from '../services/balances'
 import { fetchActiveLeaveTypeNames } from '../services/leaveTypes'
-import { fetchMine, fetchTeam, insertMine, cancelMine, decide, decideMany } from '../services/leaveRequests'
+import { fetchMine, fetchTeam, insertMine, updateMine as updateLeaveRequest, cancelMine, decide, decideMany } from '../services/leaveRequests'
 import { mapRow, mapTeamRow, toBalances } from './mappings'
 import { TOAST_KIND, STATUSES } from '../constants'
 import type {
@@ -13,6 +13,7 @@ import type {
   EmployeeProfileRow,
   LeaveRequestInput,
   LeaveRequestRow,
+  LeaveRequestUpdateInput,
   RequestDecision,
   ServicedError,
   TeamRequestRow,
@@ -31,6 +32,7 @@ export interface AuthContextValue {
   leaveTypes: string[]
   authReady: boolean
   addMine: (input: LeaveRequestInput) => Promise<string | null>
+  updateMine: (id: string, input: LeaveRequestUpdateInput) => Promise<boolean>
   decide: (id: string, decision: RequestDecision) => Promise<void>
   decideMany: (ids: string[], decision: RequestDecision) => Promise<void>
   cancelMine: (id: string) => Promise<void>
@@ -252,6 +254,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [loadMine, loadBalances, setToast]
   )
 
+  const updateRequest = useCallback(
+    async (id: string, input: LeaveRequestUpdateInput) => {
+      const meId = meRef.current?.id
+      if (!meId) return false
+      const { error } = await updateLeaveRequest(id, input)
+      if (error) {
+        setToast(error.userMessage, TOAST_KIND.Error)
+        return false
+      }
+      await loadMine(meId)
+      return true
+    },
+    [loadMine, setToast]
+  )
+
   const approveRequest = useCallback(
     async (id: string, decision: RequestDecision) => {
       const meId = meRef.current?.id
@@ -285,10 +302,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     () => ({
       signedIn, signIn, signOut,
       profile, mine, team, balances, leaveTypes, authReady,
-      addMine, decide: approveRequest, decideMany: approveRequests, cancelMine: cancelRequest, toast, setToast,
+      addMine, updateMine: updateRequest, decide: approveRequest, decideMany: approveRequests, cancelMine: cancelRequest, toast, setToast,
       CURRENT_YEAR,
     }),
-    [signedIn, signIn, signOut, profile, mine, team, balances, leaveTypes, authReady, addMine, approveRequest, approveRequests, cancelRequest, toast, setToast]
+    [signedIn, signIn, signOut, profile, mine, team, balances, leaveTypes, authReady, addMine, updateRequest, approveRequest, approveRequests, cancelRequest, toast, setToast]
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
