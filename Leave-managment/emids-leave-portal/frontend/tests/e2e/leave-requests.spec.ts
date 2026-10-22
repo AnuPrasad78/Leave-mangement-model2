@@ -42,5 +42,5 @@ test('manager approves a freshly raised staff request', async ({ page }) => {
   await expect(row).toContainText('Approved', { timeout: 10000 })
 
   // drift note: this approval increments the staff member's balances —
-  // re-seed (backend/supabase/seed.sql) resets everything back.
+  // re-seed with `python -m app.seed` resets everything back.
 })

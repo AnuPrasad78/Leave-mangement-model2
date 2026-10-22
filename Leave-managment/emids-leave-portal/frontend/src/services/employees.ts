@@ -3,8 +3,8 @@ import { withServiceErrors } from './errors'
 import type { EmployeeProfileRow, ServicedError } from '../types/models'
 
 // Discriminated success/error shape: the store branch is `if (error) … else use profile`,
-// so profile and error are mutually exclusive at this seam (mirrors supabase-js's own
-// { data, error } single-response contract).
+// so profile and error are mutually exclusive at this seam (a single { data, error }
+// response contract across the services layer).
 export async function fetchProfileByAuthId(_uid: string): Promise<
   { profile: null; error: ServicedError; warning: null } | { profile: EmployeeProfileRow; error: null; warning: ServicedError | null }
 > {

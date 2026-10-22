@@ -17,7 +17,7 @@ export const businessDaysBetween = (from: string, to: string): number => {
   return count
 }
 
-// Local calendar date ("YYYY-MM-DD"). Supabase stores plain dates; the legacy
+// Local calendar date ("YYYY-MM-DD"). The backend stores plain dates; the legacy
 // UTC-shifted new Date().toISOString().slice(0, 10) slipped a day for
 // evening-hour users in positive UTC offsets.
 export const todayISO = (): string => {

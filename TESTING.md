@@ -42,8 +42,10 @@ npx playwright test -g "manager sign-in"                # one test by name
 ```
 
 Mutating specs create their own rows and clean up after themselves; logins come from
-`tests/e2e/fixtures.ts` (see `SEED_PASSWORD`). Requires the seeded auth users created by
-the Supabase setup skill (`supabase-setup`).
+`tests/e2e/fixtures.ts` (see `SEED_PASSWORD`). Seed the demo logins first:
+```
+cd Leave-managment/emids-leave-portal/backend/api && .venv/Scripts/python -m app.seed
+```
 
 ## Backend — pytest
 

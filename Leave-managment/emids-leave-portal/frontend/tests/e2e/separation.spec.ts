@@ -3,8 +3,8 @@ import { loginAs } from './fixtures'
 
 // Validation-only: the flow stops at the "Confirm & notify HR" modal because a
 // SUBMITTED separation is HR-visible and has no UI-based undo. Automated
-// submission (with service-role cleanup via a valid SUPABASE_SERVICE_ROLE_KEY)
-// is deliberately excluded until that key is rotated and provisioned.
+// submission-and-cleanup is deliberately excluded until a reset path for the
+// separations table is provisioned.
 
 test('separation form validates LWD/reason and is guarded by a confirm modal', async ({ page }) => {
   await loginAs(page, 'manager')

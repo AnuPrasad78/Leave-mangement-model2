@@ -1,6 +1,6 @@
 import { STATUSES, MODES, ROLES, TOAST_KIND, MAX_PICKS, separationReasons } from '../../src/constants'
 
-// Contract pins — these mirror the Postgres enums in backend/supabase/schema.sql.
+// Contract pins — these mirror the Postgres enums in backend/api (app/models.py + migrations).
 // If the schema changes, these tests change with it (never silently).
 describe('src/constants', () => {
   it('pins request statuses', () => {

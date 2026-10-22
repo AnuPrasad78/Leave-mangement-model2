@@ -1,4 +1,4 @@
-// Mirrors the Postgres enums/values defined in backend/supabase/schema.sql.
+// Mirrors the Postgres enums/values defined in backend/api/migrations (and app/models.py).
 // Statuses/modes/roles live in the DB; these literals keep the client in sync.
 // `as const` lets src/types/models.ts derive literal unions from these values.
 export const STATUSES = {

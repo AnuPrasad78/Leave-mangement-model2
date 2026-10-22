@@ -33,7 +33,7 @@ test('employees are redirected away from the manager queue', async ({ page }) =>
   await page.getByRole('button', { name: /sign in/i }).click()
   await page.waitForTimeout(3000)
   const staffAccountAvailable = page.url().includes('/dashboard')
-  test.skip(!staffAccountAvailable, 'staff e2e account is not provisioned in this project yet (needs a valid SUPABASE_SERVICE_ROLE_KEY)')
+  test.skip(!staffAccountAvailable, 'staff e2e account is not provisioned yet (re-run `python -m app.seed` against the running backend)')
   await page.goto('/leave-requests')
   await page.waitForTimeout(1200)
   expect(page.url()).toContain('/dashboard')
