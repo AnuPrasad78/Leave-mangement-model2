@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import type { ApiSession } from '../services/auth'
 import { getSession, subscribeToAuth, signInWithPassword, signOut as signOutClient } from '../services/auth'
 import { fetchProfileByAuthId, fetchReportIds } from '../services/employees'
 import { fetchLatestBalances } from '../services/balances'
-import { fetchActiveLeaveTypeNames, fetchLeaveTypeIdByName } from '../services/leaveTypes'
-import { fetchMine, fetchTeam, insertMine, cancelMine, decide, decideMany } from '../services/leaveRequests'
+import { fetchActiveLeaveTypeNames } from '../services/leaveTypes'
+import { fetchMine, fetchTeam, insertMine, updateMine as updateLeaveRequest, cancelMine, decide, decideMany } from '../services/leaveRequests'
 import { mapRow, mapTeamRow, toBalances } from './mappings'
 import { TOAST_KIND, STATUSES } from '../constants'
 import type {
@@ -13,6 +13,7 @@ import type {
   EmployeeProfileRow,
   LeaveRequestInput,
   LeaveRequestRow,
+  LeaveRequestUpdateInput,
   RequestDecision,
   ServicedError,
   TeamRequestRow,
@@ -31,6 +32,7 @@ export interface AuthContextValue {
   leaveTypes: string[]
   authReady: boolean
   addMine: (input: LeaveRequestInput) => Promise<string | null>
+  updateMine: (id: string, input: LeaveRequestUpdateInput) => Promise<boolean>
   decide: (id: string, decision: RequestDecision) => Promise<void>
   decideMany: (ids: string[], decision: RequestDecision) => Promise<void>
   cancelMine: (id: string) => Promise<void>
@@ -120,7 +122,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   )
 
   const handleSession = useCallback(
-    async (session: Session | null) => {
+    async (session: ApiSession | null) => {
       const user = session?.user
       if (!user) {
         meRef.current = null
@@ -215,24 +217,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     async ({ type, from, to, days, mode, reason, requestedOn }: LeaveRequestInput) => {
       const meId = meRef.current?.id
       if (!meId) return null
-      const { id: leaveTypeId, error: typeError } = await fetchLeaveTypeIdByName(type)
-      if (typeError) {
-        setToast(typeError.userMessage, TOAST_KIND.Error)
-        return null
-      }
-      if (!leaveTypeId) {
-        setToast(`Unknown leave type: ${type}`, TOAST_KIND.Error)
-        return null
-      }
       const { requestNo, error } = await insertMine({
-        employee_id: meId,
-        leave_type_id: leaveTypeId,
-        start_date: from,
-        end_date: to,
+        type,
+        from,
+        to,
         days,
         mode,
         reason: reason || '(no reason given)',
-        requested_on: requestedOn,
+        requestedOn,
       })
       if (error) {
         setToast(error.userMessage, TOAST_KIND.Error)
@@ -260,6 +252,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await loadBalances(meId)
     },
     [loadMine, loadBalances, setToast]
+  )
+
+  const updateRequest = useCallback(
+    async (id: string, input: LeaveRequestUpdateInput) => {
+      const meId = meRef.current?.id
+      if (!meId) return false
+      const { error } = await updateLeaveRequest(id, input)
+      if (error) {
+        setToast(error.userMessage, TOAST_KIND.Error)
+        return false
+      }
+      await loadMine(meId)
+      return true
+    },
+    [loadMine, setToast]
   )
 
   const approveRequest = useCallback(
@@ -295,10 +302,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     () => ({
       signedIn, signIn, signOut,
       profile, mine, team, balances, leaveTypes, authReady,
-      addMine, decide: approveRequest, decideMany: approveRequests, cancelMine: cancelRequest, toast, setToast,
+      addMine, updateMine: updateRequest, decide: approveRequest, decideMany: approveRequests, cancelMine: cancelRequest, toast, setToast,
       CURRENT_YEAR,
     }),
-    [signedIn, signIn, signOut, profile, mine, team, balances, leaveTypes, authReady, addMine, approveRequest, approveRequests, cancelRequest, toast, setToast]
+    [signedIn, signIn, signOut, profile, mine, team, balances, leaveTypes, authReady, addMine, updateRequest, approveRequest, approveRequests, cancelRequest, toast, setToast]
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

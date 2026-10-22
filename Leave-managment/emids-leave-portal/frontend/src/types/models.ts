@@ -1,12 +1,7 @@
 // Domain types for the leave portal frontend.
 //
-// Everything here is derived from existing sources only:
-// - enum/unions mirror src/constants.js, which mirrors the Postgres enums in
-//   backend/supabase/schema.sql (pinned by tests/unit/constants.test.js)
-// - row shapes mirror backend/supabase/schema.sql via src/types/database.ts
-// - view models mirror the mappers in src/store/mappings.js
+// Enum values mirror the leave API; view models mirror src/store/mappings.ts.
 import type { STATUSES, MODES, ROLES, TOAST_KIND } from '../constants'
-import type { Database } from './database'
 
 /* ---------- enums (literal mirrors of the Postgres enums) ---------- */
 
@@ -24,8 +19,7 @@ export type HolidayKind = 'fixed' | 'optional'
 
 /* ---------- service error contract (services/errors.ts) ---------- */
 
-// Supabase PostgREST/Auth error shape actually observed by normalizeSupabaseError.
-export interface SupabaseErrorLike {
+export interface ServiceErrorLike {
   message?: string | null
   code?: string | number | null
   status?: number
@@ -41,17 +35,77 @@ export interface ServicedError {
   retryAfterMs?: number
 }
 
-/* ---------- DB rows (aliases into the Database shape) ---------- */
+/* ---------- API response rows ---------- */
 
-export type EmployeeRow = Database['public']['Tables']['employees']['Row']
-export type LeaveTypesRow = Database['public']['Tables']['leave_types']['Row']
-export type LeaveRequestsRow = Database['public']['Tables']['leave_requests']['Row']
-export type LeaveRequestsInsert = Database['public']['Tables']['leave_requests']['Insert']
-export type LeaveRequestsUpdate = Database['public']['Tables']['leave_requests']['Update']
-export type LeaveBalancesRow = Database['public']['Tables']['leave_balances']['Row']
-export type HolidaysRow = Database['public']['Tables']['holidays']['Row']
-export type OptionalHolidayPickInsert = Database['public']['Tables']['optional_holiday_picks']['Insert']
-export type SeparationRequestsInsert = Database['public']['Tables']['separation_requests']['Insert']
+export interface EmployeeRow {
+  id: string
+  user_id: string | null
+  emp_no: string
+  full_name: string
+  initials: string | null
+  email: string
+  job_title: string | null
+  doj: string | null
+  account: string | null
+  project_name: string | null
+  function_name: string | null
+  manager_id: string | null
+  delivery_partner_name: string | null
+  location: string | null
+  system_role: SystemRole
+  created_at: string
+}
+
+export interface LeaveTypesRow {
+  id: number
+  name: string
+  is_active: boolean
+}
+
+export interface LeaveRequestsRow {
+  id: number
+  request_no: string
+  employee_id: string
+  leave_type_id: number
+  start_date: string
+  end_date: string
+  days: string | number
+  mode: LeaveMode
+  reason: string
+  status: RequestStatus
+  approver_id: string | null
+  decided_at: string | null
+  requested_on: string
+  created_at: string
+}
+
+export interface LeaveBalancesRow {
+  id: number
+  employee_id: string
+  year: number
+  opening_annual: string | number
+  annual_credited: string | number
+  annual_utilized: string | number
+  contingency_credited: string | number
+  contingency_utilized: string | number
+  annual_cap: string | number
+  contingency_cap: string | number
+}
+
+export interface HolidaysRow {
+  id: number
+  country: string
+  location: string | null
+  year: number
+  kind: HolidayKind
+  holiday_date: string
+  name: string
+}
+
+export interface OptionalHolidayPickInsert {
+  employee_id: string
+  holiday_id: number
+}
 
 // The joined row the leave-requests columns select:
 //   leave_types!leave_requests_leave_type_id_fkey(name)
@@ -61,7 +115,7 @@ export type LeaveRequestSelectRow = LeaveRequestsRow & {
   employees?: { full_name: string; emp_no: string } | null
 }
 
-// fetchProfileByAuthId enriches the employees row with a same-table embed.
+// Profile responses include the manager name from the API.
 export type EmployeeProfileRow = EmployeeRow & { manager?: { full_name: string } | null }
 
 // The shape addMine() accepts — the leave request as composed by the form and
@@ -76,6 +130,7 @@ export interface LeaveRequestInput {
   requestedOn: string
 }
 
+export type LeaveRequestUpdateInput = Omit<LeaveRequestInput, 'requestedOn'>
 /* ---------- view models exposed by the store / components ---------- */
 
 export interface LeaveRequestRow {

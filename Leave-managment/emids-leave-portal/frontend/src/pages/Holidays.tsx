@@ -26,7 +26,10 @@ export default function Holidays() {
         if (error) setToast(error.userMessage, TOAST_KIND.Error)
         setAll(rows)
       } catch (error) {
-        if (alive) setToast(error instanceof Error ? error.message : 'Unable to load the holiday calendar.', TOAST_KIND.Error)
+        if (alive) {
+          setToast(error instanceof Error ? error.message : 'Unable to load the holiday calendar.', TOAST_KIND.Error)
+          setAll([]) // drop the perpetual-loading tables when even the transport threw
+        }
       }
     }
     void run()

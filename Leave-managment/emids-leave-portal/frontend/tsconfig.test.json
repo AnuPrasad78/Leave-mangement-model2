@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Test suites keep all null-safety checks on; only inferability is relaxed:
+    // spy-option objects and destructured render helpers don't need signatures.
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["tests/unit", "tests/unit/mocks"],
+  "exclude": ["dist", "node_modules", "tests/e2e"]
+}

@@ -1,5 +1,8 @@
 import { ROLES } from '../constants'
-import type { EmployeeRow } from '../types/models'
 
-export const canApprove = (profile: Pick<EmployeeRow, 'system_role'> | null | undefined): boolean =>
+// Accepts any row-like shape with an optional system_role — pure feature rules
+// (notifications, search) call this with partial profiles mid-load.
+export const canApprove = (
+  profile: { system_role?: string | null } | null | undefined
+): boolean =>
   profile?.system_role === ROLES.Manager || profile?.system_role === ROLES.Admin

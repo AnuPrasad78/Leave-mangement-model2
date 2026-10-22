@@ -3,6 +3,9 @@ dist/
 .env
 .env.local
 *.local
+**/.venv/
+**/__pycache__/
+*.py[cod]
 test-results/
 playwright-report/
 **/tests/.visual-*/

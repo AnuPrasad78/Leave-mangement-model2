@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/AuthContext'
 import { useDismiss } from '../hooks/useDismiss'
@@ -6,15 +6,19 @@ import { canApprove } from '../utils/roles'
 import { fmtDays } from '../utils/format'
 import { balanceRow } from '../utils/balances'
 import { STATUSES } from '../constants'
+import { buildNotifications } from '../features/notifications/buildNotifications'
 import { IconButton } from './ui'
 import ProfileMenu from './layout/ProfileMenu'
+import NotificationsPanel from './layout/NotificationsPanel'
+import SearchOverlay from './layout/SearchOverlay'
 import ChatPanel from './layout/ChatPanel'
 import {
   IconMenu, IconSearch, IconBell, IconX, IconLogout, IconChevronDown,
   IconDashboard, IconCalendarPlus, IconFileText, IconClipboardCheck, IconSun, IconDoor,
-  IconSparkles, IconUser,
+  IconUser, IconSparkles,
 } from './Icons'
 import type { IconComponent } from './Icons'
+import type { LeaveRequestRow, TeamRequestRow } from '../types/models'
 
 import logo from '../assets/emids-logo.svg'
 
@@ -38,19 +42,96 @@ export interface LayoutProps {
   children: ReactNode
 }
 
+// Stable fallback so the session-clearing path never hands useMemo a fresh [].
+const EMPTY_ROWS: never[] = []
+
 export default function Layout({ children }: LayoutProps) {
   const [open, setOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
-  const { signOut, profile, team, balances } = useAuth()
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  // Session-scoped "viewed" set: keys already surfaced via the bell dialog.
+  const [seenNotifs, setSeenNotifs] = useState<Set<string>>(() => new Set())
+  const { signOut, profile, mine, team, balances } = useAuth()
+  // During sign-out the store clears to empty; partial suppliers must not crash.
+  const mineRows = useMemo(() => (Array.isArray(mine) ? mine : EMPTY_ROWS) as LeaveRequestRow[], [mine])
+  const teamRows = useMemo(() => (Array.isArray(team) ? team : EMPTY_ROWS) as TeamRequestRow[], [team])
   const navigate = useNavigate()
   const drawerRef = useRef<HTMLDivElement | null>(null)
   useDismiss(drawerRef, { onClose: () => setOpen(false), enabled: open })
 
-  const pendingRequests = team.filter((r) => r.status === STATUSES.Pending).length
+  const visibleNav = useMemo(
+    () => NAV.filter((n) => canApprove(profile) || n.to !== '/leave-requests'),
+    [profile]
+  )
+
+  const pendingRequests = teamRows.filter((r) => r.status === STATUSES.Pending).length
+
+  const notifications = useMemo(() => buildNotifications(profile, mineRows, teamRows), [profile, mineRows, teamRows])
+  const unseenCount = useMemo(
+    () => notifications.filter((n) => !seenNotifs.has(n.key)).length,
+    [notifications, seenNotifs]
+  )
+  const markNotificationsSeen = useCallback(() => {
+    setSeenNotifs((prev) => {
+      if (notifications.every((n) => prev.has(n.key))) return prev
+      const next = new Set(prev)
+      notifications.forEach((n) => next.add(n.key))
+      return next
+    })
+  }, [notifications])
 
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   const weekday = new Date().toLocaleDateString('en-GB', { weekday: 'long' })
+
+  const toggleSearch = useCallback(() => {
+    setProfileOpen(false)
+    setNotifOpen(false)
+    setSearchOpen(true)
+  }, [])
+
+  const toggleNotifications = useCallback(() => {
+    setProfileOpen(false)
+    setSearchOpen(false)
+    markNotificationsSeen()
+    setNotifOpen(true)
+  }, [markNotificationsSeen])
+
+  // The pop backdrop sits above the header, so closing always lands here —
+  // re-marking seen is idempotent and cheap.
+  const closeNotifications = useCallback(() => {
+    setNotifOpen(false)
+    markNotificationsSeen()
+  }, [markNotificationsSeen])
+
+  const navigateFromPop = useCallback((to: string) => {
+    setNotifOpen(false)
+    setSearchOpen(false)
+    setProfileOpen(false)
+    markNotificationsSeen()
+    navigate(to)
+  }, [markNotificationsSeen, navigate])
+
+  // "/" opens global search from any page — unless the user is already typing.
+  useEffect(() => {
+    const onSearchHotkey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) return
+      if (searchOpen || notifOpen || profileOpen || open) return
+      e.preventDefault()
+      toggleSearch()
+    }
+    document.addEventListener('keydown', onSearchHotkey)
+    return () => document.removeEventListener('keydown', onSearchHotkey)
+  }, [searchOpen, notifOpen, profileOpen, open, toggleSearch])
 
   const goto = (to: string) => { navigate(to); setOpen(false); setProfileOpen(false) }
   const logout = async () => {
@@ -79,12 +160,28 @@ export default function Layout({ children }: LayoutProps) {
         <div className="header__title">Absence Management</div>
 
         <div className="header__right">
-          <IconButton label="Search" onClick={() => goto('/leave-details')}>
+          <IconButton
+            label="Search"
+            title="Search"
+            aria-haspopup="dialog"
+            aria-expanded={searchOpen}
+            onClick={toggleSearch}
+          >
             <IconSearch size={21} />
           </IconButton>
-          <IconButton label="Notifications" onClick={() => goto('/leave-requests')}>
+          <IconButton
+            label={unseenCount > 0 ? `Notifications (${unseenCount} new)` : 'Notifications'}
+            title="Notifications"
+            aria-haspopup="dialog"
+            aria-expanded={notifOpen}
+            onClick={toggleNotifications}
+          >
             <IconBell size={21} />
-            <span className="icon-btn__dot" />
+            {unseenCount > 0 && (
+              <span className="icon-btn__count" aria-hidden="true">
+                {unseenCount > 9 ? '9+' : unseenCount}
+              </span>
+            )}
           </IconButton>
           <IconButton
             label={profileOpen ? 'Hide my profile' : 'Show my profile'}
@@ -100,6 +197,23 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         {profileOpen && <ProfileMenu profile={profile} onDismiss={() => setProfileOpen(false)} />}
+        {notifOpen && (
+          <NotificationsPanel
+            notifications={notifications}
+            onNavigate={navigateFromPop}
+            onDismiss={closeNotifications}
+          />
+        )}
+        {searchOpen && (
+          <SearchOverlay
+            nav={visibleNav}
+            profile={profile}
+            mine={mineRows}
+            team={teamRows}
+            onNavigate={navigateFromPop}
+            onDismiss={() => setSearchOpen(false)}
+          />
+        )}
       </header>
 
       <main className="content">{children}</main>
@@ -137,7 +251,7 @@ export default function Layout({ children }: LayoutProps) {
         )}
 
         <nav className="drawer__nav">
-          {NAV.filter((n) => canApprove(profile) || n.to !== '/leave-requests').map(({ to, num, label, icon: Icon }) => (
+          {visibleNav.map(({ to, num, label, icon: Icon }) => (
             <NavLink key={to} to={to} className="nav-item" onClick={() => setOpen(false)}>
               <Icon size={18} />
               <span className="mono">{num}</span>

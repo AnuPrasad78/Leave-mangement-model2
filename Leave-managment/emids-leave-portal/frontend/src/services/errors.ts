@@ -1,14 +1,14 @@
-import type { ServicedError, SupabaseErrorLike } from '../types/models'
+import type { ServicedError, ServiceErrorLike } from '../types/models'
 import { isTransientQueryFailure } from './retry'
 import { withQueryRetry } from './retry'
 
-export function normalizeSupabaseError(error: SupabaseErrorLike | null | undefined, context = ''): ServicedError | null {
+export function normalizeServiceError(error: ServiceErrorLike | null | undefined, context = ''): ServicedError | null {
   if (!error) return null
 
   const message = error.message || 'Something went wrong. Please try again.'
   const isOverlapError =
     context === 'submit request' &&
-    message.includes('leave_requests_no_overlap')
+    (message.includes('leave_requests_no_overlap') || message.includes('leave_requests_no_active_overlap'))
   const rawRetryAfter = error.headers?.['retry-after'] ?? error.headers?.['Retry-After']
   const retryAfterSeconds = typeof rawRetryAfter === 'string' ? Number(rawRetryAfter) : typeof rawRetryAfter === 'number' ? rawRetryAfter : NaN
   const retryAfterDateMs = typeof rawRetryAfter === 'string' && !Number.isFinite(retryAfterSeconds)
@@ -36,16 +36,16 @@ export function normalizeThrownError(error: unknown, context = ''): ServicedErro
     ? detail.code
     : typeof detail.status === 'number' ? detail.status : 'unknown'
   const headers = detail.headers && typeof detail.headers === 'object' ? detail.headers as Record<string, unknown> : undefined
-  return normalizeSupabaseError({ message, code, status: typeof detail.status === 'number' ? detail.status : undefined, headers }, context)!
+  return normalizeServiceError({ message, code, status: typeof detail.status === 'number' ? detail.status : undefined, headers }, context)!
 }
 
-export async function withServiceErrors<T>(
+export async function withServiceErrors<TSuccess, TFailure>(
   context: string,
-  operation: () => PromiseLike<T>,
-  onFailure: (error: ServicedError) => T,
+  operation: () => PromiseLike<TSuccess>,
+  onFailure: (error: ServicedError) => TFailure,
   retryReadOnly = false,
   mutationMayHaveCommitted = false
-): Promise<T> {
+): Promise<TSuccess | TFailure> {
   try {
     const result = retryReadOnly ? await withQueryRetry(operation) : await operation()
     if (mutationMayHaveCommitted && result && typeof result === 'object' && 'error' in result) {

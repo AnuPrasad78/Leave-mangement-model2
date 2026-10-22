@@ -38,7 +38,7 @@ export default function Dashboard() {
         const { rows, error } = await fetchUpcomingHolidays(todayISO())
         if (error) setToast(error.userMessage, TOAST_KIND.Error)
         if (!alive || !rows.length) return
-        let picks = null
+        let picks: Set<number> | null = null
         if (profile?.id) {
           const result = await fetchOptionalPicks(profile.id)
           if (!alive) return
