@@ -1,0 +1,28 @@
+const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+export const fmtDate = (iso: string): string =>
+  new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+
+export const dayName = (iso: string): string => weekDays[new Date(iso + 'T00:00:00').getDay()]
+
+export const businessDaysBetween = (from: string, to: string, excludedDates: readonly string[] = []): number => {
+  let count = 0
+  const excluded = new Set(excludedDates)
+  const cur = new Date(from + 'T00:00:00')
+  const end = new Date(to + 'T00:00:00')
+  while (cur <= end) {
+    const dow = cur.getDay()
+    const iso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`
+    if (dow !== 0 && dow !== 6 && !excluded.has(iso)) count++
+    cur.setDate(cur.getDate() + 1)
+  }
+  return count
+}
+
+// Local calendar date ("YYYY-MM-DD"). The backend stores plain dates; the legacy
+// UTC-shifted new Date().toISOString().slice(0, 10) slipped a day for
+// evening-hour users in positive UTC offsets.
+export const todayISO = (): string => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.local
+*.local
+**/.venv/
+**/__pycache__/
+*.py[cod]
+test-results/
+playwright-report/
+**/tests/.visual-*/
+
+# per-machine session config (not for commits)
+**/.claude/launch.json
+**/.claude/settings.local.json
