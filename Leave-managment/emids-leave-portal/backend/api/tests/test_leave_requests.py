@@ -7,6 +7,8 @@ this API, which is why it gets its own section below.
 
 import pytest
 
+from datetime import date
+
 BASE_BODY = {
     "type": "Paid Time Off",
     "from": "2027-03-01",
@@ -57,6 +59,45 @@ def test_created_request_is_pending_and_queryable(client, employee_factory, leav
     assert row["leave_types"] == {"name": "Paid Time Off"}
     assert row["employees"]["full_name"] == employee.full_name
     assert row["employees"]["emp_no"] == employee.emp_no
+
+
+@pytest.mark.integration
+def test_fixed_location_holiday_is_excluded_but_optional_holiday_is_counted(
+    client, employee_factory, leave_types, auth_headers, make_holiday, session
+):
+    from app.models import Employee
+
+    employee = employee_factory("fixed.holiday@emids.com")
+    with session() as db:
+        db.get(Employee, employee.id).location = "Bangalore, IN"
+        db.commit()
+
+    make_holiday(kind="fixed", holiday_date=date(2027, 3, 3), name="Fixed", location="Bangalore")
+    make_holiday(kind="optional", holiday_date=date(2027, 3, 4), name="Optional", location="Bangalore")
+    headers = auth_headers("fixed.holiday@emids.com")
+
+    response = apply(
+        client,
+        headers,
+        **{"from": "2027-03-01", "to": "2027-03-05", "days": 5},
+    )
+
+    assert response.status_code == 201
+    assert float(mine(client, headers)[0]["days"]) == 4.0
+    update_wrong_count = client.put(
+        f"/leave-requests/{response.json()['requestNo']}",
+        json={
+            "type": "Paid Time Off",
+            "from": "2027-03-01",
+            "to": "2027-03-05",
+            "days": 5,
+            "mode": "Full Day",
+            "reason": "Family wedding",
+        },
+        headers=headers,
+    )
+    assert update_wrong_count.status_code == 200
+    assert float(mine(client, headers)[0]["days"]) == 4.0
 
 
 @pytest.mark.integration

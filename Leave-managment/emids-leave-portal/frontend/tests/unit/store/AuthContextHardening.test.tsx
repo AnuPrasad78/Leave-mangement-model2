@@ -51,6 +51,10 @@ vi.mock('../../../src/services/leaveTypes', () => ({
   fetchActiveLeaveTypeNames: (...args: unknown[]) => fetchActiveLeaveTypeNames(...args),
 }))
 
+vi.mock('../../../src/services/holidays', () => ({
+  fetchAllHolidays: vi.fn(async () => ({ rows: [], error: null })),
+}))
+
 import { AuthProvider, useAuth } from '../../../src/store/AuthContext'
 import type { AuthContextValue } from '../../../src/store/AuthContext'
 

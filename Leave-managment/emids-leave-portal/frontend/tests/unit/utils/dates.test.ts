@@ -24,6 +24,10 @@ describe('utils/dates', () => {
     it('counts a full Mon-Fri week as 5', () => {
       expect(businessDaysBetween('2026-01-05', '2026-01-09')).toBe(5)
     })
+    it('excludes fixed holiday dates from weekday counts', () => {
+      expect(businessDaysBetween('2026-01-05', '2026-01-09', ['2026-01-07'])).toBe(4)
+      expect(businessDaysBetween('2026-01-05', '2026-01-09', ['2026-01-10'])).toBe(5)
+    })
     it('spans weekends without counting them', () => {
       expect(businessDaysBetween('2026-01-05', '2026-01-11')).toBe(5) // Mon→Sun
       expect(businessDaysBetween('2026-01-09', '2026-01-12')).toBe(2) // Fri→Mon

@@ -5,13 +5,15 @@ export const fmtDate = (iso: string): string =>
 
 export const dayName = (iso: string): string => weekDays[new Date(iso + 'T00:00:00').getDay()]
 
-export const businessDaysBetween = (from: string, to: string): number => {
+export const businessDaysBetween = (from: string, to: string, excludedDates: readonly string[] = []): number => {
   let count = 0
+  const excluded = new Set(excludedDates)
   const cur = new Date(from + 'T00:00:00')
   const end = new Date(to + 'T00:00:00')
   while (cur <= end) {
     const dow = cur.getDay()
-    if (dow !== 0 && dow !== 6) count++
+    const iso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`
+    if (dow !== 0 && dow !== 6 && !excluded.has(iso)) count++
     cur.setDate(cur.getDate() + 1)
   }
   return count

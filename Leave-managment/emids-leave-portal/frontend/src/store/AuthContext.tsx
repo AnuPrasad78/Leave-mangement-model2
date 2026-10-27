@@ -5,12 +5,14 @@ import { getSession, subscribeToAuth, signInWithPassword, signOut as signOutClie
 import { fetchProfileByAuthId, fetchReportIds } from '../services/employees'
 import { fetchLatestBalances } from '../services/balances'
 import { fetchActiveLeaveTypeNames } from '../services/leaveTypes'
+import { fetchAllHolidays } from '../services/holidays'
 import { fetchMine, fetchTeam, insertMine, updateMine as updateLeaveRequest, cancelMine, decide, decideMany } from '../services/leaveRequests'
 import { mapRow, mapTeamRow, toBalances } from './mappings'
 import { TOAST_KIND, STATUSES } from '../constants'
 import type {
   BalanceSummary,
   EmployeeProfileRow,
+  HolidaysRow,
   LeaveRequestInput,
   LeaveRequestRow,
   LeaveRequestUpdateInput,
@@ -30,6 +32,7 @@ export interface AuthContextValue {
   team: TeamRequestRow[]
   balances: BalanceSummary | null
   leaveTypes: string[]
+  fixedHolidayDates: string[]
   authReady: boolean
   addMine: (input: LeaveRequestInput) => Promise<string | null>
   updateMine: (id: string, input: LeaveRequestUpdateInput) => Promise<boolean>
@@ -59,6 +62,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [team, setTeam] = useState<TeamRequestRow[]>([])
   const [balances, setBalances] = useState<BalanceSummary | null>(null)
   const [leaveTypes, setLeaveTypes] = useState<string[]>([])
+  const [fixedHolidayDates, setFixedHolidayDates] = useState<string[]>([])
   const [toast, setToastState] = useState<ToastModel | null>(null)
   const meRef = useRef<{ uid: string; id: string | null } | null>(null) // id = employees.id
   const toastTimer = useRef<number | null>(null)
@@ -121,6 +125,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [setToast]
   )
 
+  const loadFixedHolidayDates = useCallback(
+    async (location: string | null, userId: string) => {
+      const { rows, error } = await fetchAllHolidays()
+      if (meRef.current?.uid !== userId) return
+      if (error) setToast(error.userMessage, TOAST_KIND.Error)
+      const city = (location ?? '').split(',')[0].trim().toLowerCase()
+      setFixedHolidayDates(
+        rows
+          .filter(
+            (holiday: HolidaysRow) =>
+              Boolean(city) &&
+              holiday.country === 'India' &&
+              holiday.kind === 'fixed' &&
+              holiday.location?.trim().toLowerCase() === city
+          )
+          .map((holiday) => holiday.holiday_date)
+      )
+    },
+    [setToast]
+  )
+
   const handleSession = useCallback(
     async (session: ApiSession | null) => {
       const user = session?.user
@@ -131,10 +156,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setMine([])
         setTeam([])
         setBalances(null)
+        setFixedHolidayDates([])
         return
       }
       if (!meRef.current || meRef.current.uid !== user.id) {
         meRef.current = { uid: user.id, id: null }
+        setFixedHolidayDates([])
         const { profile: p, error, warning } = await fetchProfileByAuthId(user.id)
         if (meRef.current?.uid !== user.id) return
         meRef.current.id = p?.id ?? null
@@ -142,7 +169,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (error) setToast(error.userMessage, TOAST_KIND.Error)
         else {
           if (warning) setToast(warning.userMessage, TOAST_KIND.Error)
-          const results = await Promise.allSettled([loadMine(p.id), loadTeam(p.id), loadBalances(p.id), loadLeaveTypes()])
+          const results = await Promise.allSettled([
+            loadMine(p.id),
+            loadTeam(p.id),
+            loadBalances(p.id),
+            loadLeaveTypes(),
+            loadFixedHolidayDates(p.location, user.id),
+          ])
           results.forEach((result) => {
             if (result.status === 'rejected') setToast(unexpectedMessage(result.reason), TOAST_KIND.Error)
           })
@@ -150,7 +183,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       setSignedIn(true)
     },
-    [loadMine, loadTeam, loadBalances, loadLeaveTypes, setToast]
+    [loadMine, loadTeam, loadBalances, loadLeaveTypes, loadFixedHolidayDates, setToast]
   )
 
   useEffect(() => {
@@ -178,6 +211,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setTeam([])
         setBalances(null)
         setLeaveTypes([])
+        setFixedHolidayDates([])
       } else {
         void handleSession(session).catch((error: unknown) => {
           setToast(unexpectedMessage(error), TOAST_KIND.Error)
@@ -301,12 +335,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value = useMemo<AuthContextValue>(
     () => ({
       signedIn, signIn, signOut,
-      profile, mine, team, balances, leaveTypes, authReady,
+      profile, mine, team, balances, leaveTypes, fixedHolidayDates, authReady,
       addMine, updateMine: updateRequest, decide: approveRequest, decideMany: approveRequests, cancelMine: cancelRequest, toast, setToast,
       CURRENT_YEAR,
     }),
-    [signedIn, signIn, signOut, profile, mine, team, balances, leaveTypes, authReady, addMine, updateRequest, approveRequest, approveRequests, cancelRequest, toast, setToast]
+    [signedIn, signIn, signOut, profile, mine, team, balances, leaveTypes, fixedHolidayDates, authReady, addMine, updateRequest, approveRequest, approveRequests, cancelRequest, toast, setToast]
   )
+  
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

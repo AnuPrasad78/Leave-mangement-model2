@@ -6,7 +6,7 @@ import LeaveRequestForm from '../components/feature/leave-request-form/LeaveRequ
 
 export default function ApplyLeave() {
   const navigate = useNavigate()
-  const { setToast, addMine, leaveTypes, balances } = useAuth()
+  const { setToast, addMine, leaveTypes, balances, fixedHolidayDates } = useAuth()
 
   return (
     <div className="page">
@@ -14,6 +14,7 @@ export default function ApplyLeave() {
       <LeaveRequestForm
         leaveTypes={leaveTypes}
         balances={balances}
+        fixedHolidayDates={fixedHolidayDates}
         addMine={addMine}
         onCancel={() => navigate('/dashboard')}
         onError={(message) => setToast(message, TOAST_KIND.Error)}

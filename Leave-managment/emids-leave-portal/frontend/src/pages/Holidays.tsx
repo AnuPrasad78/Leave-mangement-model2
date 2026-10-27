@@ -57,6 +57,7 @@ export default function Holidays() {
     () => (all ?? []).filter((h) => h.country === country && h.location === location && h.kind === 'fixed' && h.year === Number(year)),
     [all, country, location, year]
   )
+  
   const optional = useMemo(
     () => (all ?? []).filter((h) => h.country === country && h.kind === 'optional' && h.year === Number(year)),
     [all, country, year]

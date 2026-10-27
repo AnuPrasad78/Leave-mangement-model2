@@ -54,6 +54,11 @@ vi.mock('../../../src/services/leaveTypes', () => ({
   fetchActiveLeaveTypeNames: (...args: unknown[]) => fetchActiveLeaveTypeNames(...args),
 }))
 
+const fetchAllHolidays: Mock = vi.fn(async () => ({ rows: [], error: null }))
+vi.mock('../../../src/services/holidays', () => ({
+  fetchAllHolidays: (...args: unknown[]) => fetchAllHolidays(...args),
+}))
+
 import { AuthProvider, useAuth } from '../../../src/store/AuthContext'
 import type { AuthContextValue } from '../../../src/store/AuthContext'
 
@@ -113,6 +118,27 @@ describe('store/AuthContext', () => {
     expect(fetchTeam).not.toHaveBeenCalled()
     expect(fetchLatestBalances).toHaveBeenCalledWith('e-me')
     expect(fetchActiveLeaveTypeNames).toHaveBeenCalledTimes(1)
+  })
+
+  it('loads fixed holidays only for the employee location', async () => {
+    sessionRef.session = { user: { id: 'uid-1' } }
+    fetchProfileByAuthId.mockResolvedValueOnce({
+      profile: { id: 'e-me', full_name: 'Me', location: 'Bangalore, IN' },
+      error: null,
+      warning: null,
+    })
+    fetchAllHolidays.mockResolvedValueOnce({
+      rows: [
+        { id: 1, country: 'India', kind: 'fixed', location: 'Bangalore', year: 2026, holiday_date: '2026-10-14', name: 'Holiday' },
+        { id: 2, country: 'India', kind: 'optional', location: 'Bangalore', year: 2026, holiday_date: '2026-10-15', name: 'Optional' },
+        { id: 3, country: 'India', kind: 'fixed', location: 'Hyderabad', year: 2026, holiday_date: '2026-10-16', name: 'Other location' },
+      ],
+      error: null,
+    })
+    const spy = renderStore()
+    await waitCtx(spy, (ctx) => ctx.authReady && ctx.signedIn && ctx.fixedHolidayDates.length === 1)
+
+    expect(ctxOf(spy).fixedHolidayDates).toEqual(['2026-10-14'])
   })
 
   it('signIn returns the error message string on failure', async () => {

@@ -50,6 +50,10 @@ vi.mock('../../../src/services/leaveTypes', () => ({
   fetchActiveLeaveTypeNames: (...args: unknown[]) => fetchActiveLeaveTypeNames(...args),
 }))
 
+vi.mock('../../../src/services/holidays', () => ({
+  fetchAllHolidays: vi.fn(async () => ({ rows: [], error: null })),
+}))
+
 // Mutation-success + refresh-failure: force the refresh to throw via the mapper
 // (services never reject by design), which exercises the store's
 // saved-but-not-refreshed handling.

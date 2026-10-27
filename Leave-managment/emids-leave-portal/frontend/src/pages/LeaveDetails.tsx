@@ -7,7 +7,7 @@ import { TOAST_KIND } from '../constants'
 import type { LeaveRequestRow } from '../types/models'
 
 export default function LeaveDetails() {
-  const { mine, cancelMine, updateMine, leaveTypes, balances, setToast, CURRENT_YEAR } = useAuth()
+  const { mine, cancelMine, updateMine, leaveTypes, balances, fixedHolidayDates, setToast, CURRENT_YEAR } = useAuth()
   const [editing, setEditing] = useState<LeaveRequestRow | null>(null)
 
   return (
@@ -23,6 +23,7 @@ export default function LeaveDetails() {
             key={editing.id}
             leaveTypes={leaveTypes}
             balances={balances}
+            fixedHolidayDates={fixedHolidayDates}
             updateMine={updateMine}
             editRequest={editing}
             onCancel={() => setEditing(null)}

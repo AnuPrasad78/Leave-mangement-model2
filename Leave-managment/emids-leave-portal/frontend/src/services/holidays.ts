@@ -8,7 +8,9 @@ export async function fetchAllHolidays(): Promise<{ rows: HolidaysRow[]; error: 
     'holidays lookup',
     async () => {
       const rows = await apiRequest<HolidaysRow[]>('/holidays')
+      
       return { rows, error: null }
+      
     },
     (error) => ({ rows: [], error }),
     true

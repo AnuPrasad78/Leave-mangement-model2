@@ -1,7 +1,9 @@
 """Approval workflow: who may decide, how balance pools move, and rollback guarantees."""
 
-import pytest
+from datetime import date
 from decimal import Decimal
+
+import pytest
 
 
 def apply(client, headers, **overrides):
@@ -60,6 +62,33 @@ def test_manager_approval_creates_and_debits_pools(client, employee_factory, lea
 
 
 @pytest.mark.integration
+def test_approval_recounts_existing_pending_request_with_fixed_holiday(
+    client, employee_factory, leave_types, auth_headers, make_holiday, session
+):
+    from app.models import Employee, LeaveRequest
+
+    manager = employee_factory("holiday.approve.mgr@emids.com", role="manager")
+    employee = employee_factory("holiday.approve.emp@emids.com", manager=manager)
+    with session() as db:
+        db.get(Employee, employee.id).location = "Bangalore, IN"
+        db.commit()
+    make_holiday(kind="fixed", holiday_date=date(2027, 3, 3), name="Fixed", location="Bangalore")
+
+    employee_headers = auth_headers("holiday.approve.emp@emids.com")
+    manager_headers = auth_headers("holiday.approve.mgr@emids.com")
+    request_no = apply(client, employee_headers).json()["requestNo"]
+    with session() as db:
+        request = db.query(LeaveRequest).filter(LeaveRequest.request_no == request_no).one()
+        request.days = Decimal("5")
+        db.commit()
+
+    assert decide(client, manager_headers, request_no).status_code == 200
+    assert float(balance_of(client, employee_headers)["annual_utilized"]) == 4.0
+    row = next(row for row in mine(client, employee_headers) if row["request_no"] == request_no)
+    assert float(row["days"]) == 4.0
+
+
+@pytest.mark.integration
 def test_rejection_does_not_touch_balances(client, employee_factory, leave_types, auth_headers):
     manager = employee_factory("reject.mgr@emids.com", role="manager")
     employee_factory("reject.emp@emids.com", manager=manager)
@@ -80,7 +109,13 @@ def test_contingency_bucket_draws_from_contingency_pool(client, employee_factory
     emp_headers = auth_headers("con.emp@emids.com")
     mgr_headers = auth_headers("con.mgr@emids.com")
 
-    request_no = apply(client, emp_headers, type="Contingency Bucket", days=2).json()["requestNo"]
+    request_no = apply(
+        client,
+        emp_headers,
+        type="Contingency Bucket",
+        **{"from": "2027-03-01", "to": "2027-03-02"},
+        days=2,
+    ).json()["requestNo"]
     assert decide(client, mgr_headers, request_no, "Approved").status_code == 200
 
     balance = balance_of(client, emp_headers)
@@ -282,7 +317,7 @@ def test_bulk_decision_approves_multiple_and_debits_once_each(client, employee_f
     mgr_headers = auth_headers("bulk.mgr@emids.com")
 
     first = apply(client, emp_headers, **{"from": "2027-03-01", "to": "2027-03-05"}, days=5).json()["requestNo"]
-    second = apply(client, emp_headers, **{"from": "2027-04-01", "to": "2027-04-05"}, days=5).json()["requestNo"]
+    second = apply(client, emp_headers, **{"from": "2027-04-05", "to": "2027-04-09"}, days=5).json()["requestNo"]
 
     response = client.post(
         "/leave-requests/bulk-decision",

@@ -12,13 +12,14 @@ const balances: BalanceSummary = {
   rows: [{ key: 'available', label: 'Available', value: 15, max: 18 }],
 }
 
-function setup({ addMine = vi.fn(async () => 'LV-100'), balances: b = balances, onError = vi.fn() }: { addMine?: (input: LeaveRequestInput) => Promise<string | null>; balances?: BalanceSummary; onError?: (message: string) => void } = {}) {
+function setup({ addMine = vi.fn(async () => 'LV-100'), balances: b = balances, fixedHolidayDates = [], onError = vi.fn() }: { addMine?: (input: LeaveRequestInput) => Promise<string | null>; balances?: BalanceSummary; fixedHolidayDates?: string[]; onError?: (message: string) => void } = {}) {
   const onSubmitted = vi.fn()
   const onCancel = vi.fn()
   render(
     <LeaveRequestForm
       leaveTypes={leaveTypes}
       balances={b}
+      fixedHolidayDates={fixedHolidayDates}
       addMine={addMine}
       onSubmitted={onSubmitted}
       onCancel={onCancel}
@@ -83,6 +84,19 @@ describe('components/feature/LeaveRequestForm', () => {
     await waitFor(() =>
       expect(onSubmitted).toHaveBeenCalledWith('Paid Time Off request submitted · 2 day(s)')
     )
+  })
+
+  it('submits the leave count with fixed holidays omitted', async () => {
+    const user = userEvent.setup()
+    const addMine = vi.fn(async () => 'LV-100')
+    setup({ addMine, fixedHolidayDates: ['2026-10-13'] })
+
+    fireEvent.change(screen.getByLabelText(/From Date/), { target: { value: '2026-10-12' } })
+    fireEvent.change(screen.getByLabelText(/To Date/), { target: { value: '2026-10-14' } })
+    await user.type(screen.getByLabelText(/Reason/), 'Cousin wedding out of town')
+    await user.click(screen.getByRole('button', { name: 'Submit Request' }))
+
+    expect(addMine).toHaveBeenCalledWith(expect.objectContaining({ days: 2 }))
   })
 
   it('publishes nothing when the mutation fails', async () => {

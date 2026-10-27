@@ -2,11 +2,24 @@ import { businessDaysBetween } from '../../utils/dates'
 import { MODES } from '../../constants'
 import type { LeaveMode } from '../../types/models'
 
-export function computeRequestDays({ from, to, mode }: { from: string; to: string; mode: LeaveMode }): number | null {
+export function computeRequestDays({
+  from,
+  to,
+  mode,
+  fixedHolidayDates = [],
+}: {
+  from: string
+  to: string
+  mode: LeaveMode
+  fixedHolidayDates?: readonly string[]
+}): number | null {
   if (!from || !to) return null
   if (to < from) return null
-  const n = businessDaysBetween(from, to)
-  if (mode !== MODES.Full) return Math.max(0.5, n * 0.5)
+  const n = businessDaysBetween(from, to, fixedHolidayDates)
+  if (mode !== MODES.Full) {
+    if (from === to && fixedHolidayDates.includes(from)) return 0
+    return Math.max(0.5, n * 0.5)
+  }
   return n
 }
 

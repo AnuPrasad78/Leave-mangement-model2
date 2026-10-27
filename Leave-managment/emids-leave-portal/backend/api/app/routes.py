@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -119,6 +119,39 @@ def request_rows(session: Session, employee_ids: list[str]) -> list[dict]:
     return [request_payload(request, employee, leave_type) for request, employee, leave_type in rows]
 
 
+def calculate_request_days(
+    session: Session, employee: Employee, from_date: date, to_date: date, mode: LeaveMode
+) -> Decimal:
+    holiday_dates: set[date] = set()
+    if employee.location:
+        city = employee.location.split(",", maxsplit=1)[0].strip().casefold()
+        holiday_dates = set(
+            holiday.holiday_date
+            for holiday in session.scalars(
+                select(Holiday).where(
+                    Holiday.country == "India",
+                    Holiday.kind == "fixed",
+                    Holiday.holiday_date >= from_date,
+                    Holiday.holiday_date <= to_date,
+                )
+            ).all()
+            if holiday.location and holiday.location.strip().casefold() == city
+        )
+
+    working_days = 0
+    current = from_date
+    while current <= to_date:
+        if current.weekday() < 5 and current not in holiday_dates:
+            working_days += 1
+        current += timedelta(days=1)
+
+    if mode == LeaveMode.FULL_DAY:
+        return Decimal(working_days)
+    if from_date == to_date and from_date in holiday_dates:
+        return Decimal("0")
+    return max(Decimal("0.5"), Decimal(working_days) * Decimal("0.5"))
+
+
 @router.get("/leave-requests/mine")
 def list_my_requests(
     employee: Employee = Depends(current_employee), session: Session = Depends(get_session)
@@ -151,13 +184,16 @@ def create_leave_request(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid leave dates or day count")
     if payload.mode != LeaveMode.FULL_DAY and (payload.from_date != payload.to_date or payload.days != Decimal("0.5")):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Half-day requests must be a single 0.5-day date")
+    calculated_days = calculate_request_days(session, employee, payload.from_date, payload.to_date, payload.mode)
+    if calculated_days <= 0:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid leave dates or day count")
 
     request = LeaveRequest(
         employee_id=employee.id,
         leave_type_id=leave_type.id,
         start_date=payload.from_date,
         end_date=payload.to_date,
-        days=payload.days,
+        days=calculated_days,
         mode=payload.mode,
         reason=payload.reason or "(no reason given)",
         requested_on=payload.requested_on,
@@ -224,10 +260,17 @@ def update_leave_request(
             detail="Half-day requests must be a single 0.5-day date",
         )
 
+    calculated_days = calculate_request_days(session, employee, payload.from_date, payload.to_date, payload.mode)
+    if calculated_days <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid leave dates or day count",
+        )
+
     request.leave_type_id = leave_type.id
     request.start_date = payload.from_date
     request.end_date = payload.to_date
-    request.days = payload.days
+    request.days = calculated_days
     request.mode = payload.mode
     request.reason = payload.reason or "(no reason given)"
 
@@ -307,6 +350,17 @@ def decide_requests(
     try:
         for request in requests:
             if decision == LeaveStatus.APPROVED:
+                request_employee = session.get(Employee, request.employee_id)
+                if request_employee is None:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+                request.days = calculate_request_days(
+                    session, request_employee, request.start_date, request.end_date, request.mode
+                )
+                if request.days <= 0:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="This request has no chargeable leave days",
+                    )
                 update_balance_for_decision(session, request, decision)
             request.status = decision
             request.approver_id = employee.id

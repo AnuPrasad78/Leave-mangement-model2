@@ -11,6 +11,7 @@ import type { BalanceSummary, LeaveRequestInput, LeaveRequestRow, LeaveRequestUp
 export interface LeaveRequestFormProps {
   leaveTypes: string[]
   balances: BalanceSummary | null
+  fixedHolidayDates?: readonly string[]
   addMine?: (input: LeaveRequestInput) => Promise<string | null>
   updateMine?: (id: string, input: LeaveRequestUpdateInput) => Promise<boolean>
   editRequest?: LeaveRequestRow
@@ -19,7 +20,7 @@ export interface LeaveRequestFormProps {
   onCancel: () => void
 }
 
-export default function LeaveRequestForm({ leaveTypes, balances, addMine, updateMine, editRequest, onSubmitted, onError, onCancel }: LeaveRequestFormProps) {
+export default function LeaveRequestForm({ leaveTypes, balances, fixedHolidayDates = [], addMine, updateMine, editRequest, onSubmitted, onError, onCancel }: LeaveRequestFormProps) {
   const [type, setType] = useState(editRequest?.type ?? 'Paid Time Off')
   const [from, setFrom] = useState(editRequest?.from ?? '')
   const [to, setTo] = useState(editRequest?.to ?? '')
@@ -27,8 +28,7 @@ export default function LeaveRequestForm({ leaveTypes, balances, addMine, update
   const [reason, setReason] = useState(editRequest?.reason ?? '')
   const [errors, setErrors] = useState<RequestValidationErrors>({})
 
-  const days = useMemo(() => computeRequestDays({ from, to, mode }), [from, to, mode])
-
+  const days = useMemo(() => computeRequestDays({ from, to, mode, fixedHolidayDates }), [from, to, mode, fixedHolidayDates])
   const remaining = remainingAfter(balances, days)
   const fmt = (v: number) => (v == null ? '' : Number.isInteger(v) ? String(v) : v.toFixed(1))
 
@@ -85,6 +85,7 @@ export default function LeaveRequestForm({ leaveTypes, balances, addMine, update
               className="input"
               type="date"
               value={from}
+              min={todayISO()}
               onChange={(e) => setFrom(e.target.value)}
             />
           </Field>

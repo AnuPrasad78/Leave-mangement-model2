@@ -12,6 +12,12 @@ describe('features/leave-requests/computeRequestDays', () => {
     expect(computeRequestDays({ from: '2026-10-12', to: '2026-10-12', mode: MODES.SecondHalf })).toBe(0.5)
   })
 
+  it('excludes fixed holidays from full-day and half-day counts', () => {
+    const fixedHolidayDates = ['2026-10-14']
+    expect(computeRequestDays({ from: '2026-10-12', to: '2026-10-16', mode: MODES.Full, fixedHolidayDates })).toBe(4)
+    expect(computeRequestDays({ from: '2026-10-14', to: '2026-10-14', mode: MODES.FirstHalf, fixedHolidayDates })).toBe(0)
+  })
+
   it('returns the zero-day weekend-only range as 0 (current rule)', () => {
     expect(computeRequestDays({ from: '2026-10-10', to: '2026-10-11', mode: MODES.Full })).toBe(0)
   })
