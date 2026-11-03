@@ -19,6 +19,8 @@ import AdminEmployees from './pages/AdminEmployees'
 import AdminLeavePolicies from './pages/AdminLeavePolicies'
 import AdminAuditLogs from './pages/AdminAuditLogs'
 import AdminStaleRequests from './pages/AdminStaleRequests'
+import AdminReminders from './pages/AdminReminders'
+import AdminRoster from './pages/AdminRoster'
 
 interface GuardProps {
   children: ReactNode
@@ -83,9 +85,11 @@ export default function App() {
 
         <Route path="/admin" element={<AdminOnly><AdminDashboard /></AdminOnly>} />
         <Route path="/admin/employees" element={<AdminOnly><AdminEmployees /></AdminOnly>} />
+        <Route path="/admin/roster" element={<AdminOnly><AdminRoster /></AdminOnly>} />
         <Route path="/admin/leave-policies" element={<AdminOnly><AdminLeavePolicies /></AdminOnly>} />
         <Route path="/admin/audit-logs" element={<AdminOnly><AdminAuditLogs /></AdminOnly>} />
         <Route path="/admin/requests-stale" element={<AdminOnly><AdminStaleRequests /></AdminOnly>} />
+        <Route path="/admin/reminders" element={<AdminOnly><AdminReminders /></AdminOnly>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

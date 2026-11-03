@@ -199,8 +199,10 @@ def test_employee_cannot_decide_own_request(client, employee_factory, leave_type
 
     response = decide(client, auth_headers("self.decider@emids.com"), request_no)
 
+    # self-decisions are rejected before the generic authorization check,
+    # so the more specific guard message wins
     assert response.status_code == 403
-    assert response.json()["detail"] == "Not authorized to decide this request"
+    assert response.json()["detail"] == "Cannot decide your own leave request"
 
 
 @pytest.mark.integration
@@ -329,3 +331,43 @@ def test_bulk_with_empty_list_rejected(client, employee_factory, leave_types, au
     )
 
     assert response.status_code == 422
+
+
+# --------------------------------------------------------------------------
+# Self-approval guard (RBAC regression)
+# --------------------------------------------------------------------------
+@pytest.mark.integration
+def test_admin_cannot_decide_own_request(client, employee_factory, leave_types, auth_headers):
+    """can_decide_for admits admins for everyone — including themselves.
+    Deciding your own request must stay forbidden for every role."""
+    employee_factory("selfadm.admin@emids.com", role="admin")
+    admin_headers = auth_headers("selfadm.admin@emids.com")
+
+    request_no = apply(client, admin_headers).json()["requestNo"]
+
+    response = decide(client, admin_headers, request_no, "Approved")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Cannot decide your own leave request"
+    assert next(r for r in mine(client, admin_headers))["status"] == "Pending"
+
+
+@pytest.mark.integration
+def test_admin_cannot_decide_own_request_in_bulk(client, employee_factory, leave_types, auth_headers):
+    employee_factory("selfadm.bulk@emids.com", role="admin")
+    admin_headers = auth_headers("selfadm.bulk@emids.com")
+
+    own = apply(client, admin_headers).json()["requestNo"]
+    peer = employee_factory("selfadm.peer@emids.com")
+    other = apply(client, auth_headers("selfadm.peer@emids.com")).json()["requestNo"]
+
+    response = client.post(
+        "/leave-requests/bulk-decision",
+        json={"decision": "Approved", "request_nos": [other, own]},
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 403
+    # nothing moved, including the legitimate peer request in the same batch
+    statuses = {r["request_no"]: r["status"] for r in mine(client, auth_headers("selfadm.peer@emids.com"))}
+    assert statuses[other] == "Pending"

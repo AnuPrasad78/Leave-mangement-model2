@@ -50,6 +50,7 @@ from app.schemas import (
     LeaveRequestInput,
     LeaveRequestUpdateInput,
     LoginInput,
+    NudgeInput,
     OptionalPickInput,
     PasswordResetPerformInput,
     PasswordResetInitOutput,
@@ -340,6 +341,10 @@ def decide_requests(
     if len(requests) != len(set(request_numbers)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="One or more requests were not found")
     for request in requests:
+        if request.employee_id == employee.id:
+            # can_decide_for admits admins for every employee, including
+            # themselves — deciding your own request must stay forbidden.
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot decide your own leave request")
         request_employee = session.get(Employee, request.employee_id)
         if request_employee is None or not can_decide_for(employee, request_employee):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to decide this request")
@@ -652,10 +657,67 @@ def admin_update_employee(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No fields to update")
 
     if values.get("manager_id"):
-        if session.get(Employee, values["manager_id"]) is None:
+        proposed_manager = session.get(Employee, values["manager_id"])
+        if proposed_manager is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Manager not found")
         if values["manager_id"] == employee.id:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="An employee cannot be their own manager")
+        if proposed_manager.system_role == SystemRole.EMPLOYEE:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Pick someone in the manager role")
+        proposed_manager_user = session.get(User, proposed_manager.user_id) if proposed_manager.user_id else None
+        if proposed_manager_user is None or not proposed_manager_user.is_active:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="That manager is not active")
+
+    if "system_role" in values and values["system_role"] != employee.system_role.value:
+        self_role_change = employee.id == admin.id
+        if self_role_change:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot change your own role")
+        if values["system_role"] != "admin" and employee.system_role == SystemRole.ADMIN:
+            remaining_admins = session.scalar(
+                select(func.count()).select_from(Employee).where(
+                    Employee.system_role == SystemRole.ADMIN,
+                    Employee.id != employee.id,
+                )
+            )
+            if not remaining_admins:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot demote the last active admin of the organization",
+                )
+        # Settled-team guard (roster desk rule): nobody loses the manager cap
+        # (or demotes themselves out of the queue) while active reports hang
+        # off them — reassign those people first.
+        if employee.system_role == SystemRole.MANAGER or (employee.system_role == SystemRole.ADMIN and values["system_role"] != "manager"):
+            active_reports = session.scalar(
+                select(func.count()).select_from(Employee).where(
+                    Employee.manager_id == employee.id,
+                    Employee.system_role == SystemRole.EMPLOYEE,
+                )
+            )
+            if active_reports:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"{employee.full_name} still has {active_reports} active direct reports — reassign them first",
+                )
+        if values["system_role"] == "employee":
+            manager_id = values.get("manager_id") or employee.manager_id
+            if not manager_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Employees need a reporting manager",
+                )
+            manager = session.get(Employee, manager_id)
+            if manager is None or manager.system_role == SystemRole.EMPLOYEE:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Pick someone in the manager role",
+                )
+            manager_user = session.get(User, manager.user_id) if manager.user_id else None
+            if manager_user is None or not manager_user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="That manager is not active",
+                )
 
     if "email" in values and values["email"] != employee.email:
         duplicate = session.scalar(select(Employee).where(func.lower(Employee.email) == values["email"].lower()))
@@ -1153,6 +1215,46 @@ def admin_carry_forward(
 # Decision notifications (Phase 6): rows written inside the decision
 # transaction; read endpoint below (ADMIN_DECISIONS.md Q7).
 # --------------------------------------------------------------------------
+
+
+@router.post("/admin/notifications")
+def admin_send_nudge(
+    payload: NudgeInput,
+    request: Request,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    """In-app nudge to the managers (or anyone) holding pending decisions:
+    writes one Notification per recipient plus a single audit row."""
+    recipient_ids = list(dict.fromkeys(payload.recipient_employee_ids))
+    recipients = {
+        row.id: row
+        for row in session.scalars(select(Employee).where(Employee.id.in_(recipient_ids))).all()
+    }
+    missing = [recipient_id for recipient_id in recipient_ids if recipient_id not in recipients]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipient not found")
+
+    for recipient in recipients.values():
+        session.add(
+            Notification(
+                recipient_employee_id=recipient.id,
+                kind="admin_nudge",
+                title=payload.title,
+                body=payload.body,
+                target_type="admin_nudge",
+            )
+        )
+    _audit(
+        request, admin, session, "nudge_sent", "notification", None,
+        {"title": payload.title, "recipient_ids": recipient_ids},
+    )
+    try:
+        session.commit()
+    except Exception as error:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Could not send the nudge") from error
+    return {"ok": True, "recipients": len(recipient_ids)}
 
 
 def _notify_decision(session: Session, request: LeaveRequest, request_employee: Employee, approver: Employee, decision: LeaveStatus) -> None:

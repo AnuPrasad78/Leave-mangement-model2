@@ -1,10 +1,15 @@
 import { render, screen, fireEvent } from '@testing-library/react'
+import { vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthContext } from '../../../src/store/AuthContext'
 import type { AuthContextValue } from '../../../src/store/AuthContext'
 import type { BalanceSummary, EmployeeProfileRow, TeamRequestRow } from '../../../src/types/models'
 import Layout from '../../../src/components/Layout'
+
+vi.mock('../../../src/services/notifications', () => ({
+  fetchMyNotifications: vi.fn().mockResolvedValue({ rows: [], error: null }),
+}))
 
 const staffProfile = { initials: 'VD', full_name: 'Vikram Deshmukh', job_title: 'Consultant', emp_no: 'EM-20810', system_role: 'employee' } as unknown as EmployeeProfileRow
 const managerProfile = { ...staffProfile, system_role: 'manager' } as unknown as EmployeeProfileRow
@@ -47,6 +52,40 @@ describe('components/Layout', () => {
     expect(screen.getByText('My Requests')).toBeInTheDocument()
     expect(screen.getByText('Holiday Calendar')).toBeInTheDocument()
     expect(screen.getByText('Separation Request')).toBeInTheDocument()
+  })
+
+  const adminProfile = { ...staffProfile, system_role: 'admin' } as unknown as EmployeeProfileRow
+
+  it('hides every admin nav entry from employees and managers', () => {
+    setup()
+    openDrawer()
+    expect(screen.queryByText('Admin · Overview')).not.toBeInTheDocument()
+    expect(screen.queryByText('Admin · Employees')).not.toBeInTheDocument()
+
+    document.body.innerHTML = ''
+    setup({ profile: managerProfile })
+    openDrawer()
+    expect(screen.queryByText('Admin · Overview')).not.toBeInTheDocument()
+  })
+
+  it('shows the full admin nav entry set for admins', () => {
+    setup({ profile: adminProfile })
+    openDrawer()
+    for (const label of [
+      'Admin · Overview', 'Admin · Employees', 'Admin · Policies',
+      'Admin · Audit Logs', 'Admin · Stale Review', 'Admin · Reminders',
+    ]) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+  })
+
+  it('opens the notifications popover from the bell', async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole('button', { name: 'Show notifications' }))
+    expect(screen.getByRole('dialog', { name: 'Notifications' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Close notifications' }))
+    expect(screen.queryByRole('dialog', { name: 'Notifications' })).toBeNull()
   })
 
   it('hides the Leave Requests queue entry from plain employees but shows it for managers', () => {

@@ -194,7 +194,7 @@ class LeaveBalance(Base):
     annual_utilized: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default=text("0"))
     contingency_credited: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default=text("0"))
     contingency_utilized: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default=text("0"))
-    annual_cap: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default=text("18"))
+    annual_cap: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default=text("22"))
     contingency_cap: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default=text("10"))
 
 

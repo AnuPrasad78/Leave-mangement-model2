@@ -32,6 +32,7 @@ const row = (overrides: Partial<EmployeeAdminRow> = {}): EmployeeAdminRow => ({
   location: 'Bangalore, IN',
   system_role: 'employee',
   is_active: true,
+  created_at: '2024-01-10T00:00:00Z',
   ...overrides,
 })
 

@@ -9,6 +9,8 @@ import type {
   EmployeeUpdateInput,
   LeavePolicyConfig,
   AdminBalanceRow,
+  LeaveRequestSelectRow,
+  NudgeInput,
   PasswordResetInit,
   ServicedError,
   StaleRequestRow,
@@ -173,6 +175,36 @@ export async function fetchStaleRequests(
       return { rows, error: null }
     },
     (error) => ({ rows: [], error }),
+    true
+  )
+}
+
+export async function fetchOrgRequests(): Promise<{ rows: LeaveRequestSelectRow[]; error: ServicedError | null }> {
+  return withServiceErrors(
+    'org request lookup',
+    async () => {
+      const rows = await apiRequest<LeaveRequestSelectRow[]>('/leave-requests/team?limit=0')
+      return { rows, error: null }
+    },
+    (error) => ({ rows: [], error }),
+    true
+  )
+}
+
+export async function adminSendNudge(
+  input: NudgeInput
+): Promise<{ error: ServicedError | null }> {
+  return withServiceErrors(
+    'send nudge',
+    async () => {
+      await apiRequest<{ ok: boolean; recipients: number }>('/admin/notifications', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      })
+      return { error: null }
+    },
+    (error) => ({ error }),
+    false,
     true
   )
 }

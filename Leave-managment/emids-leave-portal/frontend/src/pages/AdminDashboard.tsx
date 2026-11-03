@@ -3,21 +3,56 @@ import { Link } from 'react-router-dom'
 import { Button, PageHead } from '../components/ui'
 import { useAuth } from '../store/AuthContext'
 import { TOAST_KIND } from '../constants'
-import { adminCarryForward, fetchStaleRequests } from '../services/admin'
+import { adminCarryForward, fetchAdminEmployees, fetchLeavePolicies, fetchOrgRequests, fetchStaleRequests } from '../services/admin'
 import { todayISO } from '../utils/dates'
+import type { LeavePolicyConfig, LeaveRequestSelectRow } from '../types/models'
+
+type OrgPeople = { total: number; managers: number }
 
 export default function AdminDashboard() {
   const { setToast } = useAuth()
+  const [people, setPeople] = useState<OrgPeople | null>(null)
+  const [pendingCount, setPendingCount] = useState<number | null>(null)
   const [staleCount, setStaleCount] = useState<number | null>(null)
+  const [policy, setPolicy] = useState<LeavePolicyConfig | null>(null)
   const [runningCarryForward, setRunningCarryForward] = useState(false)
 
   useEffect(() => {
     let mounted = true
+
     fetchStaleRequests(todayISO()).then(({ rows, error }) => {
       if (!mounted) return
       if (error) setToast(error.userMessage, TOAST_KIND.Error)
       setStaleCount(rows.length)
     })
+
+    fetchAdminEmployees().then(({ page, error }) => {
+      if (!mounted) return
+      if (error) {
+        setToast(error.userMessage, TOAST_KIND.Error)
+        return
+      }
+      setPeople({
+        total: page.total,
+        managers: page.items.filter((row) => row.system_role === 'manager').length,
+      })
+    })
+
+    fetchOrgRequests().then(({ rows, error }) => {
+      if (!mounted) return
+      if (error) {
+        setToast(error.userMessage, TOAST_KIND.Error)
+        return
+      }
+      setPendingCount(rows.filter((row: LeaveRequestSelectRow) => row.status === 'Pending').length)
+    })
+
+    fetchLeavePolicies().then(({ config, error }) => {
+      if (!mounted) return
+      if (error) setToast(error.userMessage, TOAST_KIND.Error)
+      setPolicy(config)
+    })
+
     return () => {
       mounted = false
     }
@@ -41,6 +76,8 @@ export default function AdminDashboard() {
     }
   }
 
+  const previousYear = new Date().getFullYear() - 1
+
   return (
     <div className="page">
       <PageHead eyebrow="Administration" title="Organization overview." accent>
@@ -49,21 +86,35 @@ export default function AdminDashboard() {
 
       <div className="card admin-grid">
         <div className="admin-tile">
+          <b>{people ? people.total : '…'}</b>
+          <span>People in the directory</span>
+        </div>
+        <div className="admin-tile">
+          <b>{people ? people.managers : '…'}</b>
+          <span>Reporting managers</span>
+        </div>
+        <div className="admin-tile">
+          <b>{pendingCount ?? '…'}</b>
+          <span>Leave requests still pending</span>
+        </div>
+        <div className="admin-tile">
           <b>{staleCount ?? '…'}</b>
           <span>Past-dated pending requests</span>
         </div>
-        <div className="admin-tile">
-          <b>22</b>
-          <span>Annual days / year (prorated by DOJ)</span>
-        </div>
-        <div className="admin-tile">
-          <b>10</b>
-          <span>Contingency days / year</span>
-        </div>
-        <div className="admin-tile">
-          <b>6</b>
-          <span>Carry-forward ceiling</span>
-        </div>
+      </div>
+
+      <div className="card admin-policy">
+        <h3>Credit policy (live from the backend)</h3>
+        {policy ? (
+          <dl className="admin-policy-list">
+            <div><dt>Annual days / year</dt><dd>{policy.annual_days_per_year} (prorated by DOJ: {policy.proration_method})</dd></div>
+            <div><dt>Contingency days / year</dt><dd>{policy.contingency_days_per_year}</dd></div>
+            <div><dt>Carry-forward ceiling</dt><dd>{policy.carry_forward_max}</dd></div>
+            <div><dt>Optional holiday picks</dt><dd>{policy.optional_holidays_max} / person / year</dd></div>
+          </dl>
+        ) : (
+          <p>Loading policy…</p>
+        )}
       </div>
 
       <div className="card admin-actions">
@@ -77,11 +128,11 @@ export default function AdminDashboard() {
         <div>
           <h3>Year-end carry-forward</h3>
           <p>
-            Moves up to 6 unused annual days from {new Date().getFullYear() - 1} into{' '}
-            {new Date().getFullYear()} opening balances. Strictly runs once per year-end.
+            Moves up to {policy ? policy.carry_forward_max : 6} unused annual days from {previousYear} into{' '}
+            {previousYear + 1} opening balances. Strictly runs once per year-end.
           </p>
           <Button variant="primary" onClick={runCarryForward} busy={runningCarryForward} busyLabel="Running…">
-            Run carry-forward for {new Date().getFullYear() - 1}
+            Run carry-forward for {previousYear}
           </Button>
         </div>
       </div>

@@ -107,12 +107,15 @@ class EmployeeCreateInput(BaseModel):
 
 
 class EmployeeUpdateInput(BaseModel):
-    """Partial profile edit. Note: system_role is NOT editable here."""
+    """Partial profile edit — including the roster desk's role retunes
+    (employee|manager|admin). Self-role changes and changes that strand active
+    reports are rejected by the route, never just by the client."""
 
     full_name: str | None = Field(default=None, min_length=1, max_length=200)
     email: str | None = Field(default=None, min_length=3, max_length=320)
     initials: str | None = Field(default=None, max_length=8)
     job_title: str | None = None
+    system_role: Literal["employee", "manager", "admin"] | None = None
     doj: date | None = None
     account: str | None = None
     project_name: str | None = None
@@ -187,3 +190,11 @@ class CarryForwardInput(BaseModel):
     year: int
 
     model_config = ConfigDict(strict=False)
+
+
+class NudgeInput(BaseModel):
+    """Admin nudge to pending-decision holders: Notification rows, audited."""
+
+    recipient_employee_ids: list[str] = Field(min_length=1, max_length=50)
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=800)

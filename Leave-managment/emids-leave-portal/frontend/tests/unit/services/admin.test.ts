@@ -7,11 +7,13 @@ import {
   adminCarryForward,
   adminCreateEmployee,
   adminInitPasswordReset,
+  adminSendNudge,
   adminSetEmployeeActive,
   fetchAdminBalances,
   fetchAdminEmployees,
   fetchAuditLogs,
   fetchLeavePolicies,
+  fetchOrgRequests,
   fetchStaleRequests,
 } from '../../../src/services/admin'
 
@@ -110,5 +112,33 @@ describe('services/admin', () => {
     const { error } = await fetchAdminEmployees()
     expect(apiRequest).toBeDefined()
     expect(error?.userMessage).toBe('Boom')
+  })
+
+  it('reads org-wide requests for the dashboard and reminders queue', async () => {
+    apiRequest.mockResolvedValueOnce([])
+    const { rows, error } = await fetchOrgRequests()
+    expect(error).toBeNull()
+    expect(rows).toEqual([])
+    expect(apiRequest).toHaveBeenCalledWith('/leave-requests/team?limit=0')
+  })
+
+  it('sends a nudge to selected recipients with the given copy', async () => {
+    apiRequest.mockResolvedValueOnce({ ok: true, recipients: 2 })
+    const { error } = await adminSendNudge({
+      recipient_employee_ids: ['e1', 'e2'],
+      title: 'Review queue',
+      body: 'Pending requests are waiting.',
+    })
+    expect(error).toBeNull()
+    expect(apiRequest).toHaveBeenCalledWith(
+      '/admin/notifications',
+      expect.objectContaining({ method: 'POST' })
+    )
+  })
+
+  it('flags a nudge whose outcome is unknown', async () => {
+    apiRequest.mockRejectedValueOnce(new Error('Network gone'))
+    const { error } = await adminSendNudge({ recipient_employee_ids: ['e1'], title: 'T', body: 'B' })
+    expect(error?.userMessage).toMatch(/may have completed/)
   })
 })

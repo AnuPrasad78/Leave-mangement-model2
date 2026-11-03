@@ -189,6 +189,7 @@ export interface EmployeeAdminRow {
   location: string | null
   system_role: SystemRole
   is_active: boolean
+  created_at: string | null
 }
 
 export interface EmployeeCreateInput {
@@ -212,6 +213,7 @@ export interface EmployeeUpdateInput {
   email?: string
   initials?: string | null
   job_title?: string | null
+  system_role?: 'employee' | 'manager' | 'admin'
   doj?: string | null
   account?: string | null
   project_name?: string | null
@@ -310,4 +312,23 @@ export interface PasswordResetInit {
   reset_token: string
   reset_endpoint: string
   expires_at: string
+}
+
+/* Notifications (GET /notifications) — decision notices and admin nudges */
+export interface NotificationRow {
+  id: number
+  kind: string
+  title: string
+  body: string
+  target_type: string | null
+  target_id: string | null
+  read_at: string | null
+  created_at: string
+}
+
+/* POST /admin/notifications body — admin nudge to pending-decision holders */
+export interface NudgeInput {
+  recipient_employee_ids: string[]
+  title: string
+  body: string
 }

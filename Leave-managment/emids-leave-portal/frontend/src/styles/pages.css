@@ -240,3 +240,21 @@
 .admin-evidence ul { margin: 6px 0 0; padding-left: 16px; font-size: 0.8rem; }
 
 .muted { opacity: 0.65; font-size: 0.85em; }
+
+/* admin nudge composer (new classes only) */
+.admin-nudge { padding: 16px; display: grid; gap: 12px; margin-top: 4px; }
+.admin-nudge .admin-editor__actions { padding: 0; }
+.admin-nudge .muted { margin: 0; }
+.admin-nudge + .admin-list-gap { margin-top: 16px; }
+
+/* roster desk + shared pager (new classes only) */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px 14px; }
+.pager__info { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.65; }
+.pager__steps { display: flex; gap: 8px; }
+.roster-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; padding: 16px; }
+.roster-bar .field { flex: 1 1 220px; }
+.roster-bar__group { display: grid; gap: 6px; }
+.roster-chips { display: flex; gap: 6px; }
+.roster-role { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.roster-role--mgr { color: var(--teal-deep); }
+.roster-who { margin: 4px 0 12px; font-size: 0.8rem; opacity: 0.7; }
