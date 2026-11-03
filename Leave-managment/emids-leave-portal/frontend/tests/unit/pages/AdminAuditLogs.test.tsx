@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event'
 import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
 import AdminAuditLogs from '../../../src/pages/AdminAuditLogs'
 import { fetchAuditLogs } from '../../../src/services/admin'
-import type { AuditLogRow } from '../../../src/types/models'
+import type { AuditLogRow, Paginated } from '../../../src/types/models'
 
 const row = (overrides: Partial<AuditLogRow> = {}): AuditLogRow => ({
   id: 1,
@@ -25,10 +25,15 @@ const row = (overrides: Partial<AuditLogRow> = {}): AuditLogRow => ({
   ...overrides,
 })
 
+const envelope = (rows: AuditLogRow[], total: number, pageCount: number, page = 1): { page: Paginated<AuditLogRow>; error: null } => ({
+  page: { rows, page: page, page_size: 10, total, page_count: pageCount },
+  error: null,
+})
+
 describe('pages/AdminAuditLogs', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(fetchAuditLogs).mockResolvedValue({ page: { items: [row()], total: 1 }, error: null })
+    vi.mocked(fetchAuditLogs).mockResolvedValue(envelope([row()], 1, 1))
   })
 
   afterEach(() => vi.restoreAllMocks())
@@ -55,11 +60,29 @@ describe('pages/AdminAuditLogs', () => {
     await user.selectOptions(screen.getByLabelText('Action'), 'balance_updated')
     await user.click(screen.getByRole('button', { name: 'Re-run' }))
     await waitFor(() =>
-      expect(fetchAuditLogs).toHaveBeenLastCalledWith({
-        action: 'balance_updated',
-        date_from: undefined,
-        date_to: undefined,
-      })
+      expect(fetchAuditLogs).toHaveBeenLastCalledWith(
+        { action: 'balance_updated', date_from: undefined, date_to: undefined },
+        1
+      )
     )
+  })
+
+  it('pages with real re-fetches and disables bounds', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetchAuditLogs).mockReset()
+    vi.mocked(fetchAuditLogs).mockResolvedValueOnce(envelope([row()], 2, 2))
+    vi.mocked(fetchAuditLogs).mockResolvedValueOnce(envelope([row({ id: 2, target_id: 'e10' })], 2, 2, 2))
+    setup()
+    await waitFor(() => expect(screen.getByText(/Total 2/)).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Prev/ })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /Next/ }))
+    await waitFor(() =>
+      expect(fetchAuditLogs).toHaveBeenLastCalledWith(
+        { action: undefined, date_from: undefined, date_to: undefined },
+        2
+      )
+    )
+    await waitFor(() => expect(screen.getByText(/Page 2 of 2/)).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Next/ })).toBeDisabled()
   })
 })

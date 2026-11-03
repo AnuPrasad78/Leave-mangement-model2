@@ -37,7 +37,7 @@ def test_stale_lists_past_dated_pending_with_context(client, admin_factory, empl
     client.post(f"/leave-requests/{approved_no}/decision", json={"decision": "Approved"},
                 headers=auth_headers("stale.mgr@emids.com"))
 
-    rows = client.get("/admin/requests/stale?before=2027-03-01", headers=auth_headers("stale.admin@emids.com")).json()
+    rows = client.get("/admin/requests/stale?before=2027-03-01", headers=auth_headers("stale.admin@emids.com")).json()["rows"]
     request_numbers = [row["request_no"] for row in rows]
     assert pending_no in request_numbers
     assert fresh_no not in request_numbers
@@ -94,7 +94,7 @@ def test_stale_evidence_includes_overlapping_wfh_and_holidays(client, admin_fact
         )
         db.commit()
 
-    rows = client.get("/admin/requests/stale?before=2027-03-01", headers=auth_headers("stalewf.admin@emids.com")).json()
+    rows = client.get("/admin/requests/stale?before=2027-03-01", headers=auth_headers("stalewf.admin@emids.com")).json()["rows"]
     row = next(r for r in rows if r["request_no"] == pending_no)
     neighbor_types = [o["leave_type"] for o in row["evidence"]["nearby_approved"]]
     assert "Work From Home" in neighbor_types

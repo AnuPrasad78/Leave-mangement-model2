@@ -50,7 +50,7 @@ def test_nudge_writes_notifications_and_audit_row(client, employee_factory, auth
     # exactly one audit row records the send
     logs = client.get("/admin/audit-logs?action=nudge_sent", headers=admin_headers).json()
     assert logs["total"] == 1
-    assert logs["items"][0]["detail_json"]["recipient_ids"] == [manager_a.id]
+    assert logs["rows"][0]["detail_json"]["recipient_ids"] == [manager_a.id]
 
 
 @pytest.mark.integration

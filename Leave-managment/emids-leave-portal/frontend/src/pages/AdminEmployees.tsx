@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, ConfirmModal, Field, PageHead } from '../components/ui'
+import { Button, ConfirmModal, Field, PageHead, Pager } from '../components/ui'
 import { useAuth } from '../store/AuthContext'
 import { useAdmin } from '../store/AdminContext'
 import { TOAST_KIND } from '../constants'
@@ -11,7 +11,7 @@ type PendingToggle = { row: EmployeeAdminRow; toActive: boolean } | null
 
 export default function AdminEmployees() {
   const { setToast } = useAuth()
-  const { employees, total, loading, search, setSearch, createEmployee, updateEmployee, setEmployeeActive, initPasswordReset } = useAdmin()
+  const { employees, total, page, pageCount, setPage, loading, search, setSearch, createEmployee, updateEmployee, setEmployeeActive, initPasswordReset } = useAdmin()
 
   const [busy, setBusy] = useState(false)
   const [editorMode, setEditorMode] = useState<'closed' | 'create' | 'edit'>('closed')
@@ -103,6 +103,7 @@ export default function AdminEmployees() {
         empty={loading ? 'Loading people…' : undefined}
       />
       <p className="admin-count">Total {total}</p>
+      <Pager page={page} pageCount={pageCount} onChange={setPage} />
 
       {(editorMode === 'create' || editorMode === 'edit') && (
         <div className="admin-overlay" role="presentation">

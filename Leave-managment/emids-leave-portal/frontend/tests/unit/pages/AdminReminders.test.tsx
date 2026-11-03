@@ -4,14 +4,15 @@ vi.mock('../../../src/services/admin', () => ({
   adminSendNudge: vi.fn(),
   fetchAdminEmployees: vi.fn(),
   fetchOrgRequests: vi.fn(),
+  fetchPendingRequestsPage: vi.fn(),
 }))
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
 import AdminReminders from '../../../src/pages/AdminReminders'
-import { adminSendNudge, fetchAdminEmployees, fetchOrgRequests } from '../../../src/services/admin'
-import type { EmployeeAdminRow, LeaveRequestSelectRow } from '../../../src/types/models'
+import { adminSendNudge, fetchAdminEmployees, fetchOrgRequests, fetchPendingRequestsPage } from '../../../src/services/admin'
+import type { EmployeeAdminRow, LeaveRequestSelectRow, Paginated } from '../../../src/types/models'
 
 const person = (overrides: Partial<EmployeeAdminRow> = {}): EmployeeAdminRow => ({
   id: 'e1',
@@ -75,14 +76,27 @@ describe('pages/AdminReminders', () => {
     })
     vi.mocked(fetchAdminEmployees).mockResolvedValue({
       page: {
-        items: [
+        rows: [
           person(),
           person({ id: 'e9', system_role: 'employee', full_name: 'Vikram Deshmukh', job_title: 'Consultant', manager_id: 'e1' }),
         ],
+        page: 1,
+        page_size: 10,
         total: 2,
+        page_count: 1,
       },
       error: null,
     })
+    const boardPage = (rows: LeaveRequestSelectRow[]): { page: Paginated<LeaveRequestSelectRow>; error: null } => ({
+      page: { rows, page: 1, page_size: 10, total: rows.length, page_count: 1 },
+      error: null,
+    })
+    vi.mocked(fetchPendingRequestsPage).mockResolvedValue(
+      boardPage([
+        request({ employee_id: 'e9', request_no: 'LV-00007', status: 'Pending', requested_on: '2026-11-01' }),
+        request({ employee_id: 'e9', request_no: 'LV-00008', status: 'Pending', requested_on: '2026-10-28' }),
+      ])
+    )
   })
 
   afterEach(() => vi.restoreAllMocks())

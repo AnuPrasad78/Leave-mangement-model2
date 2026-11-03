@@ -47,4 +47,4 @@ def test_admin_passes_the_gate(client, employee_factory, auth_headers):
     assert response.status_code == 200
     body = response.json()
     assert body["total"] == 1  # just the admin's own row exists
-    assert body["items"][0]["system_role"] == "admin"
+    assert body["rows"][0]["system_role"] == "admin"

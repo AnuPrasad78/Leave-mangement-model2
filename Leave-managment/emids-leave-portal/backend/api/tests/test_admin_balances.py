@@ -30,7 +30,7 @@ def test_balance_overview_shows_employee_briefs(client, admin_factory, employee_
     admin_headers = auth_headers("overview.admin@emids.com")
 
     empty = client.get("/admin/leave-balances?year=2027", headers=admin_headers).json()
-    assert empty == {"items": [], "total": 0, "year": 2027}
+    assert empty == {"rows": [], "page": 1, "page_size": 10, "total": 0, "page_count": 0, "year": 2027}
 
     with session() as db:
         db.add(
@@ -46,7 +46,7 @@ def test_balance_overview_shows_employee_briefs(client, admin_factory, employee_
 
     rows = client.get("/admin/leave-balances?year=2027", headers=admin_headers).json()
     assert rows["total"] == 1
-    row = rows["items"][0]
+    row = rows["rows"][0]
     assert float(row["annual_credited"]) == 22.0
     assert row["employee"]["full_name"] == "Overview Person"
     assert row["employee"]["system_role"] == "employee"
@@ -76,9 +76,9 @@ def test_upsert_creates_and_updates_with_audit(client, admin_factory, employee_f
     assert float(updated.json()["annual_credited"]) == 20.0
 
     logs = client.get("/admin/audit-logs?target_type=leave_balance", headers=admin_headers).json()
-    actions = [item["action"] for item in logs["items"]]
+    actions = [item["action"] for item in logs["rows"]]
     assert actions == ["balance_updated", "balance_created"]
-    created_log = logs["items"][1]
+    created_log = logs["rows"][1]
     assert created_log["target_id"] == f"{employee.id}:2027"
     assert created_log["detail_json"]["employee"] == employee.full_name
     assert float(created_log["detail_json"]["annual_credited"]["after"]) == 20.0

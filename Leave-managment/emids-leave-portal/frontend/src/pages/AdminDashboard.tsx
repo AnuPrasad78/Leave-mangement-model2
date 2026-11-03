@@ -20,24 +20,30 @@ export default function AdminDashboard() {
   useEffect(() => {
     let mounted = true
 
-    fetchStaleRequests(todayISO()).then(({ rows, error }) => {
+    // Stale board is server-paged now — total counts past the first page too.
+    fetchStaleRequests(todayISO()).then(({ page, error }) => {
       if (!mounted) return
       if (error) setToast(error.userMessage, TOAST_KIND.Error)
-      setStaleCount(rows.length)
+      setStaleCount(page.total)
     })
 
-    fetchAdminEmployees().then(({ page, error }) => {
+    // Server totals are accurate from a one-row page load; no full pulls.
+    fetchAdminEmployees({ pageSize: 1 }).then(({ page, error }) => {
       if (!mounted) return
       if (error) {
         setToast(error.userMessage, TOAST_KIND.Error)
         return
       }
-      setPeople({
-        total: page.total,
-        managers: page.items.filter((row) => row.system_role === 'manager').length,
-      })
+      setPeople((current) => ({ total: page.total, managers: current?.managers ?? 0 }))
     })
 
+    fetchAdminEmployees({ role: 'manager', pageSize: 1 }).then(({ page, error }) => {
+      if (!mounted) return
+      if (error) return
+      setPeople((current) => ({ total: current?.total ?? 0, managers: page.total }))
+    })
+
+    // Aggregates read the pending subset directly (server-side status filter).
     fetchOrgRequests().then(({ rows, error }) => {
       if (!mounted) return
       if (error) {

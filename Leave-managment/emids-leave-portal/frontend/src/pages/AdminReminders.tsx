@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Button, Chip, Field, PageHead, PanelTable } from '../components/ui'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Button, Chip, Field, PageHead, PanelTable, Pager } from '../components/ui'
 import { useAuth } from '../store/AuthContext'
+import { usePagedData } from '../hooks/usePagedData'
 import { TOAST_KIND } from '../constants'
-import { adminSendNudge, fetchAdminEmployees, fetchOrgRequests } from '../services/admin'
+import {
+  adminSendNudge,
+  fetchAdminEmployees,
+  fetchOrgRequests,
+  fetchPendingRequestsPage,
+} from '../services/admin'
 import { fmtDate } from '../utils/dates'
 import type { EmployeeAdminRow, LeaveRequestSelectRow } from '../types/models'
 
@@ -11,6 +17,8 @@ interface ManagerQueueRow {
   pending: number
   oldest_requested_on: string | null
 }
+
+const REMINDER_PEOPLE_CAP = 100 // page_size cap for the manager-resolution read
 
 export default function AdminReminders() {
   const { setToast } = useAuth()
@@ -23,16 +31,19 @@ export default function AdminReminders() {
   const [sending, setSending] = useState(false)
   const [sentCount, setSentCount] = useState(0)
 
+  const boardFetcher = useCallback((page: number) => fetchPendingRequestsPage(page), [])
+  const board = usePagedData<LeaveRequestSelectRow>({ fetcher: boardFetcher })
+
   useEffect(() => {
     let mounted = true
     setLoading(true)
-    Promise.all([fetchOrgRequests(), fetchAdminEmployees()]).then(
+    Promise.all([fetchOrgRequests(), fetchAdminEmployees({ pageSize: REMINDER_PEOPLE_CAP })]).then(
       ([requestsResult, peopleResult]) => {
         if (!mounted) return
         if (requestsResult.error) setToast(requestsResult.error.userMessage, TOAST_KIND.Error)
         if (peopleResult.error) setToast(peopleResult.error.userMessage, TOAST_KIND.Error)
         setRows(requestsResult.rows)
-        setPeople(peopleResult.page.items)
+        setPeople(peopleResult.page.rows)
         setLoading(false)
       }
     )
@@ -41,10 +52,8 @@ export default function AdminReminders() {
     }
   }, [setToast])
 
-  const pending = useMemo(
-    () => rows.filter((row) => row.status === 'Pending'),
-    [rows]
-  )
+  // The aggregate read is pending-only now (server-side status filter).
+  const pending = useMemo(() => rows.filter((row) => row.status === 'Pending'), [rows])
 
   const queue = useMemo<ManagerQueueRow[]>(() => {
     const byManager = new Map<string, LeaveRequestSelectRow[]>()
@@ -212,7 +221,7 @@ export default function AdminReminders() {
 
       <PanelTable
         title="Every pending request in the system"
-        count={String(pending.length)}
+        count={`${board.total} waiting`}
         columns={[
           { label: 'Request', cell: (row) => <span className="mono">{row.request_no}</span> },
           { label: 'Person', cell: (row) => row.employees?.full_name ?? '—' },
@@ -220,10 +229,11 @@ export default function AdminReminders() {
           { label: 'From', cell: (row) => fmtDate(row.start_date) },
           { label: 'Days', cell: (row) => `${row.days}` },
         ]}
-        rows={loading ? [] : pending}
+        rows={board.loading ? [] : board.rows}
         rowKey={(row) => row.request_no}
-        empty={loading ? 'Loading requests…' : 'No pending requests.'}
+        empty={board.loading ? 'Loading requests…' : 'No pending requests.'}
       />
+      <Pager page={board.page} pageCount={board.pageCount} onChange={board.setPage} />
     </div>
   )
 }

@@ -37,7 +37,10 @@ const stale = (overrides: Partial<StaleRequestRow> = {}): StaleRequestRow => ({
 describe('pages/AdminStaleRequests', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(fetchStaleRequests).mockResolvedValue({ rows: [stale()], error: null })
+    vi.mocked(fetchStaleRequests).mockResolvedValue({
+      page: { rows: [stale()], page: 1, page_size: 10, total: 1, page_count: 1 },
+      error: null,
+    })
   })
 
   afterEach(() => vi.restoreAllMocks())
@@ -55,7 +58,7 @@ describe('pages/AdminStaleRequests', () => {
     setup()
     await waitFor(() => expect(screen.getByText('Vikram Deshmukh')).toBeInTheDocument())
     expect(screen.getByText('Work context')).toBeInTheDocument()
-    expect(fetchStaleRequests).toHaveBeenCalledWith(todayISO())
+    expect(fetchStaleRequests).toHaveBeenCalledWith(todayISO(), 1)
   })
 
   it('approves a stale request through the shared decision endpoint', async () => {

@@ -18,18 +18,21 @@ import { adminCarryForward, fetchAdminEmployees, fetchLeavePolicies, fetchOrgReq
 describe('pages/AdminDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(fetchStaleRequests).mockResolvedValue({ rows: [], error: null })
-    vi.mocked(fetchAdminEmployees).mockResolvedValue({
-      page: {
-        items: [
-          { system_role: 'manager' },
-          { system_role: 'employee' },
-          { system_role: 'employee' },
-        ] as unknown as Awaited<ReturnType<typeof fetchAdminEmployees>>['page']['items'],
-        total: 3,
-      },
+    vi.mocked(fetchStaleRequests).mockResolvedValue({
+      page: { rows: [], page: 1, page_size: 10, total: 0, page_count: 0 },
       error: null,
     })
+    // one-row reads; the server `total` carries the org tile numbers
+    vi.mocked(fetchAdminEmployees).mockImplementation(async (input) => ({
+      page: {
+        rows: [],
+        page: 1,
+        page_size: 1,
+        total: (input as { role?: string } | undefined)?.role === 'manager' ? 1 : 3,
+        page_count: 1,
+      },
+      error: null,
+    }))
     vi.mocked(fetchOrgRequests).mockResolvedValue({
       rows: [
         { status: 'Pending' },
@@ -99,7 +102,7 @@ describe('pages/AdminDashboard', () => {
 
   it('toasts the failure message when a tile read errors', async () => {
     vi.mocked(fetchStaleRequests).mockResolvedValue({
-      rows: [],
+      page: { rows: [], page: 1, page_size: 10, total: 0, page_count: 0 },
       error: { code: 500, context: 'stale request lookup', userMessage: 'Cannot reach the trail' },
     })
     const setToast = setup()

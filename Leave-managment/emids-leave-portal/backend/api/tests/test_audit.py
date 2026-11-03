@@ -25,12 +25,12 @@ def test_create_update_deactivate_append_audit_rows(client, employee_factory, au
     client.post(f"/admin/employees/{created['id']}/activate", headers=headers)
 
     logs = client.get("/admin/audit-logs", headers=headers).json()
-    actions = [item["action"] for item in logs["items"]]
+    actions = [item["action"] for item in logs["rows"]]
     assert actions == ["employee_activated", "employee_deactivated", "employee_updated", "employee_created"]
     assert logs["total"] == 4
-    assert all(item["actor_employee_id"] == admin.id for item in logs["items"])
+    assert all(item["actor_employee_id"] == admin.id for item in logs["rows"])
 
-    updated = next(item for item in logs["items"] if item["action"] == "employee_updated")
+    updated = next(item for item in logs["rows"] if item["action"] == "employee_updated")
     assert updated["target_type"] == "employee"
     assert updated["target_id"] == created["id"]
     assert updated["detail_json"]["job_title"] == {"before": None, "after": "Consultant"}
@@ -56,7 +56,7 @@ def test_filter_by_action_and_target_type(client, employee_factory, auth_headers
         "/admin/audit-logs?action=employee_created&target_id=" + first["id"], headers=headers
     ).json()
     assert created["total"] == 1
-    assert created["items"][0]["detail_json"]["email"] == "filter.a@emids.com"
+    assert created["rows"][0]["detail_json"]["email"] == "filter.a@emids.com"
 
 
 @pytest.mark.integration

@@ -1,31 +1,59 @@
 import { apiRequest } from './apiClient'
 import { withServiceErrors } from './errors'
 import type {
-  AuditLogPage,
+  AdminBalanceRow,
+  AuditLogRow,
   BalanceUpsertInput,
+  EmployeeAdminRow,
   EmployeeCreateInput,
   EmployeeCreateResult,
-  EmployeePage,
   EmployeeUpdateInput,
   LeavePolicyConfig,
-  AdminBalanceRow,
   LeaveRequestSelectRow,
   NudgeInput,
+  Paginated,
   PasswordResetInit,
   ServicedError,
   StaleRequestRow,
 } from '../types/models'
 
-export async function fetchAdminEmployees(search = ''): Promise<{ page: EmployeePage; error: ServicedError | null }> {
+/* List-board call contracts now page from the server:
+   /admin/employees?page=2&page_size=10[&search=&role=&active=&manager_id=&sort=&order=] */
+
+export interface EmployeeLookup {
+  search?: string
+  role?: 'employee' | 'manager' | 'admin'
+  active?: boolean
+  managerId?: string
+  sort?: 'full_name' | 'doj' | 'emp_no'
+  order?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
+function pageQuery(page: number, pageSize = 10): URLSearchParams {
+  return new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+}
+
+const DEFAULT_PAGED = { rows: [], page: 0, page_size: 0, total: 0, page_count: 0 } as const
+
+export async function fetchAdminEmployees(
+  input: EmployeeLookup = {}
+): Promise<{ page: Paginated<EmployeeAdminRow>; error: ServicedError | null }> {
   return withServiceErrors(
     'admin employee lookup',
     async () => {
-      const params = new URLSearchParams({ limit: '200' })
-      if (search) params.set('search', search)
-      const page = await apiRequest<EmployeePage>(`/admin/employees?${params}`)
+      const params = pageQuery(input.page ?? 1, input.pageSize ?? 10)
+      if (input.search) params.set('search', input.search)
+      if (input.role) params.set('role', input.role)
+      if (input.active !== undefined) params.set('active', String(input.active))
+      if (input.managerId) params.set('manager_id', input.managerId)
+      if (input.sort) params.set('sort', input.sort)
+      if (input.order) params.set('order', input.order)
+      const page = await apiRequest<Paginated<EmployeeAdminRow>>(`/admin/employees?${params}`)
       return { page, error: null }
     },
-    (error) => ({ page: { items: [], total: 0 }, error }),
+    (error) => ({ page: { rows: [], page: 0, page_size: 0, total: 0, page_count: 0 }, error }),
     true
   )
 }
@@ -113,15 +141,18 @@ export async function fetchLeavePolicies(): Promise<{ config: LeavePolicyConfig 
 }
 
 export async function fetchAdminBalances(
-  year: number
-): Promise<{ rows: AdminBalanceRow[]; error: ServicedError | null }> {
+  year: number,
+  page = 1
+): Promise<{ page: Paginated<AdminBalanceRow> & { year: number }; error: ServicedError | null }> {
   return withServiceErrors(
     'admin balances lookup',
     async () => {
-      const page = await apiRequest<{ items: AdminBalanceRow[] }>(`/admin/leave-balances?year=${year}`)
-      return { rows: page.items, error: null }
+      const result = await apiRequest<Paginated<AdminBalanceRow> & { year: number }>(
+        `/admin/leave-balances?${pageQuery(page)}&year=${year}`
+      )
+      return { page: result, error: null }
     },
-    (error) => ({ rows: [], error }),
+    (error) => ({ page: { rows: [], page: 0, page_size: 0, total: 0, page_count: 0, year }, error }),
     true
   )
 }
@@ -147,31 +178,48 @@ export async function adminUpsertBalance(
 }
 
 export async function fetchAuditLogs(
-  filters: { action?: string; date_from?: string; date_to?: string; limit?: number }
-): Promise<{ page: AuditLogPage; error: ServicedError | null }> {
+  filters: { action?: string; date_from?: string; date_to?: string },
+  page = 1
+): Promise<{ page: Paginated<AuditLogRow>; error: ServicedError | null }> {
   return withServiceErrors(
     'audit logs lookup',
     async () => {
-      const params = new URLSearchParams()
+      const params = pageQuery(page)
       if (filters.action) params.set('action', filters.action)
       if (filters.date_from) params.set('date_from', filters.date_from)
       if (filters.date_to) params.set('date_to', filters.date_to)
-      params.set('limit', String(filters.limit ?? 200))
-      const page = await apiRequest<AuditLogPage>(`/admin/audit-logs?${params}`)
-      return { page, error: null }
+      const paged = await apiRequest<Paginated<AuditLogRow>>(`/admin/audit-logs?${params}`)
+      return { page: paged, error: null }
     },
-    (error) => ({ page: { items: [], total: 0 }, error }),
+    (error) => ({ page: { ...DEFAULT_PAGED, rows: [] }, error }),
     true
   )
 }
 
 export async function fetchStaleRequests(
-  before: string
-): Promise<{ rows: StaleRequestRow[]; error: ServicedError | null }> {
+  before: string,
+  page = 1
+): Promise<{ page: Paginated<StaleRequestRow>; error: ServicedError | null }> {
   return withServiceErrors(
     'stale request lookup',
     async () => {
-      const rows = await apiRequest<StaleRequestRow[]>(`/admin/requests/stale?before=${before}`)
+      const paged = await apiRequest<Paginated<StaleRequestRow>>(
+        `/admin/requests/stale?${pageQuery(page)}&before=${before}`
+      )
+      return { page: paged, error: null }
+    },
+    (error) => ({ page: { ...DEFAULT_PAGED, rows: [] }, error }),
+    true
+  )
+}
+
+/** The by-manager aggregate over the org's pending requests — a full read,
+ * not paged: reminders group and count every pending request at once. */
+export async function fetchOrgRequests(): Promise<{ rows: LeaveRequestSelectRow[]; error: ServicedError | null }> {
+  return withServiceErrors(
+    'org request lookup',
+    async () => {
+      const rows = await apiRequest<LeaveRequestSelectRow[]>('/leave-requests/team?status=Pending')
       return { rows, error: null }
     },
     (error) => ({ rows: [], error }),
@@ -179,14 +227,19 @@ export async function fetchStaleRequests(
   )
 }
 
-export async function fetchOrgRequests(): Promise<{ rows: LeaveRequestSelectRow[]; error: ServicedError | null }> {
+/** The "every pending request" board — one paged slice of the org queue. */
+export async function fetchPendingRequestsPage(
+  page = 1
+): Promise<{ page: Paginated<LeaveRequestSelectRow>; error: ServicedError | null }> {
   return withServiceErrors(
-    'org request lookup',
+    'pending requests lookup',
     async () => {
-      const rows = await apiRequest<LeaveRequestSelectRow[]>('/leave-requests/team?limit=0')
-      return { rows, error: null }
+      const paged = await apiRequest<Paginated<LeaveRequestSelectRow>>(
+        `/leave-requests/team?${pageQuery(page)}&status=Pending`
+      )
+      return { page: paged, error: null }
     },
-    (error) => ({ rows: [], error }),
+    (error) => ({ page: { ...DEFAULT_PAGED, rows: [] }, error }),
     true
   )
 }

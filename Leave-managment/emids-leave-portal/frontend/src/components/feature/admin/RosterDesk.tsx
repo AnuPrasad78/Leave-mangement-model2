@@ -1,7 +1,5 @@
-import { useMemo, useState } from 'react'
 import { Button, Chip, Field, Pager, PanelTable, StatusPill } from '../../ui'
 import type { PanelColumn } from '../../ui'
-import { rosterPage } from '../../../features/admin/roster'
 import type { RosterFilters } from '../../../features/admin/roster'
 import { fmtDate } from '../../../utils/dates'
 import type { EmployeeAdminRow } from '../../../types/models'
@@ -18,41 +16,40 @@ const STATUS_CHIPS: Array<{ key: RosterFilters['status']; label: string }> = [
   { key: 'inactive', label: 'Inactive' },
 ]
 
-const BLANK: RosterFilters = { query: '', role: 'all', status: 'all', managerId: '' }
 const TEAM_ANY = 'any'
 
 export interface RosterDeskProps {
-  /** The whole directory — filters and pages run over props, never the store. */
-  people: EmployeeAdminRow[]
+  /** Filter state lives on the page — every change re-queries the server. */
+  filters: RosterFilters
+  onFilterChange: <K extends keyof RosterFilters>(key: K, value: RosterFilters[K]) => void
+  /** The current server page. */
+  rows: EmployeeAdminRow[]
+  page: number
+  pageCount: number
+  total: number
   loading?: boolean
+  /** Bounded manager list for the reporting-line filter. */
+  managers: EmployeeAdminRow[]
   /** Opens the edit dialog for one person. */
   onEdit: (person: EmployeeAdminRow) => void
+  /** Requests a different server page. */
+  onPageChange: (next: number) => void
 }
 
-/** ORGANISM — the whole-company roster: search, filters, pager, edit actions. */
-export function RosterDesk({ people, loading, onEdit }: RosterDeskProps) {
-  const [filters, setFilters] = useState<RosterFilters>(BLANK)
-  const [requestedPage, setRequestedPage] = useState(1)
-
-  const byId = useMemo(() => new Map(people.map((person) => [person.id, person])), [people])
-  const teams = useMemo(
-    () =>
-      people
-        .filter((person) => person.system_role !== 'employee' && person.is_active)
-        .sort((a, b) => a.full_name.localeCompare(b.full_name)),
-    [people]
-  )
-
-  const view = useMemo(
-    () => rosterPage(people, filters, requestedPage),
-    [people, filters, requestedPage]
-  )
-
-  const patch = <K extends keyof RosterFilters>(key: K, value: RosterFilters[K]) => {
-    setFilters((prev) => ({ ...prev, [key]: value }))
-    setRequestedPage(1)
-  }
-
+/** ORGANISM — the whole-company roster: search, filters, pager, edit actions.
+ * Presentational: pages and filters arrive as props. */
+export function RosterDesk({
+  filters,
+  onFilterChange,
+  rows,
+  page,
+  pageCount,
+  total,
+  loading,
+  managers,
+  onEdit,
+  onPageChange,
+}: RosterDeskProps) {
   const columns: PanelColumn<EmployeeAdminRow>[] = [
     {
       label: 'Person',
@@ -87,7 +84,7 @@ export function RosterDesk({ people, loading, onEdit }: RosterDeskProps) {
         person.system_role !== 'employee' ? (
           <span className="muted mono">—</span>
         ) : (
-          <span>{byId.get(person.manager_id ?? '')?.full_name ?? 'Unassigned'}</span>
+          <span>{person.manager_name ?? 'Unassigned'}</span>
         ),
     },
     {
@@ -106,9 +103,7 @@ export function RosterDesk({ people, loading, onEdit }: RosterDeskProps) {
     },
   ]
 
-  const pager = (
-    <Pager page={view.page} pageCount={view.pageCount} onChange={setRequestedPage} />
-  )
+  const pager = <Pager page={page} pageCount={pageCount} onChange={onPageChange} />
 
   return (
     <>
@@ -118,7 +113,7 @@ export function RosterDesk({ people, loading, onEdit }: RosterDeskProps) {
             id="roster-q"
             className="input"
             value={filters.query}
-            onChange={(event) => patch('query', event.target.value)}
+            onChange={(event) => onFilterChange('query', event.target.value)}
             placeholder="Name, email or EM number…"
           />
         </Field>
@@ -126,7 +121,7 @@ export function RosterDesk({ people, loading, onEdit }: RosterDeskProps) {
           <span className="field__label">Role</span>
           <div className="roster-chips">
             {ROLE_CHIPS.map((chip) => (
-              <Chip key={chip.key} isOn={filters.role === chip.key} onClick={() => patch('role', chip.key)}>
+              <Chip key={chip.key} isOn={filters.role === chip.key} onClick={() => onFilterChange('role', chip.key)}>
                 {chip.label}
               </Chip>
             ))}
@@ -136,7 +131,7 @@ export function RosterDesk({ people, loading, onEdit }: RosterDeskProps) {
           <span className="field__label">Status</span>
           <div className="roster-chips">
             {STATUS_CHIPS.map((chip) => (
-              <Chip key={chip.key} isOn={filters.status === chip.key} onClick={() => patch('status', chip.key)}>
+              <Chip key={chip.key} isOn={filters.status === chip.key} onClick={() => onFilterChange('status', chip.key)}>
                 {chip.label}
               </Chip>
             ))}
@@ -147,10 +142,10 @@ export function RosterDesk({ people, loading, onEdit }: RosterDeskProps) {
             id="roster-team"
             className="input"
             value={filters.managerId === '' ? TEAM_ANY : filters.managerId}
-            onChange={(event) => patch('managerId', event.target.value === TEAM_ANY ? '' : event.target.value)}
+            onChange={(event) => onFilterChange('managerId', event.target.value === TEAM_ANY ? '' : event.target.value)}
           >
             <option value={TEAM_ANY}>— Any reporting line —</option>
-            {teams.map((manager) => (
+            {managers.map((manager) => (
               <option key={manager.id} value={manager.id}>
                 {manager.full_name} · {manager.job_title ?? ''}
               </option>
@@ -161,10 +156,10 @@ export function RosterDesk({ people, loading, onEdit }: RosterDeskProps) {
 
       <PanelTable
         title="The roster"
-        count={`${view.total} matched`}
+        count={`${total} matched`}
         headExtra={<span className="muted mono">Newest joins on top</span>}
         columns={columns}
-        rows={view.rows}
+        rows={rows}
         rowKey={(person) => person.id}
         empty={loading ? 'Loading the roster…' : 'Nobody matches those filters. Loosen the search or chips.'}
       />

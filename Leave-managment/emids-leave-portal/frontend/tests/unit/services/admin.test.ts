@@ -14,18 +14,29 @@ import {
   fetchAuditLogs,
   fetchLeavePolicies,
   fetchOrgRequests,
+  fetchPendingRequestsPage,
   fetchStaleRequests,
 } from '../../../src/services/admin'
 
 beforeEach(() => resetApiClientMock())
 
 describe('services/admin', () => {
-  it('lists employees with the search param attached', async () => {
-    apiRequest.mockResolvedValueOnce({ items: [], total: 0 })
-    const { page, error } = await fetchAdminEmployees('meera')
+  it('pages the employee directory with every filter attached', async () => {
+    apiRequest.mockResolvedValueOnce({ rows: [], page: 2, page_size: 10, total: 0, page_count: 0 })
+    const { page, error } = await fetchAdminEmployees({
+      search: 'meera',
+      role: 'manager',
+      active: true,
+      managerId: 'e-m',
+      sort: 'doj',
+      order: 'desc',
+      page: 2,
+    })
     expect(error).toBeNull()
-    expect(page).toEqual({ items: [], total: 0 })
-    expect(apiRequest).toHaveBeenCalledWith(expect.stringContaining('/admin/employees?limit=200&search=meera'))
+    expect(page.total).toBe(0)
+    expect(apiRequest).toHaveBeenCalledWith(
+      '/admin/employees?page=2&page_size=10&search=meera&role=manager&active=true&manager_id=e-m&sort=doj&order=desc'
+    )
   })
 
   it('creates an employee and returns the one-time password', async () => {
@@ -61,11 +72,19 @@ describe('services/admin', () => {
     expect(error).toBeNull()
     expect(config?.annual_days_per_year).toBe(22)
 
-    apiRequest.mockResolvedValueOnce({ items: [{ employee_id: 'e1' }], total: 1, year: 2027 })
+    apiRequest.mockResolvedValueOnce({
+      rows: [{ employee_id: 'e1' }],
+      page: 1,
+      page_size: 10,
+      total: 1,
+      page_count: 1,
+      year: 2027,
+    })
     const balances = await fetchAdminBalances(2027)
     expect(balances.error).toBeNull()
-    expect(balances.rows).toHaveLength(1)
-    expect(apiRequest).toHaveBeenLastCalledWith('/admin/leave-balances?year=2027')
+    expect(balances.page.rows).toHaveLength(1)
+    expect(balances.page.total).toBe(1)
+    expect(apiRequest).toHaveBeenLastCalledWith('/admin/leave-balances?page=1&page_size=10&year=2027')
   })
 
   it('upserts balances with a PUT', async () => {
@@ -80,20 +99,20 @@ describe('services/admin', () => {
     return adminUpsertBalance('e1', 2027, { annual_credited: 20 })
   }
 
-  it('reads the audit trail with filters', async () => {
-    apiRequest.mockResolvedValueOnce({ items: [], total: 0 })
-    const { page, error } = await fetchAuditLogs({ action: 'employee_created', limit: 10 })
+  it('reads the audit trail with filters and a page', async () => {
+    apiRequest.mockResolvedValueOnce({ rows: [], page: 3, page_size: 10, total: 0, page_count: 0 })
+    const { page, error } = await fetchAuditLogs({ action: 'employee_created' }, 3)
     expect(error).toBeNull()
     expect(page.total).toBe(0)
-    expect(apiRequest).toHaveBeenCalledWith('/admin/audit-logs?action=employee_created&limit=10')
+    expect(apiRequest).toHaveBeenCalledWith('/admin/audit-logs?page=3&page_size=10&action=employee_created')
   })
 
-  it('reads stale requests for a cutoff date', async () => {
-    apiRequest.mockResolvedValueOnce([])
-    const { rows, error } = await fetchStaleRequests('2026-10-28')
+  it('reads stale requests for a cutoff date, page included', async () => {
+    apiRequest.mockResolvedValueOnce({ rows: [], page: 1, page_size: 10, total: 0, page_count: 0 })
+    const { page, error } = await fetchStaleRequests('2026-10-28')
     expect(error).toBeNull()
-    expect(rows).toEqual([])
-    expect(apiRequest).toHaveBeenCalledWith('/admin/requests/stale?before=2026-10-28')
+    expect(page.total).toBe(0)
+    expect(apiRequest).toHaveBeenCalledWith('/admin/requests/stale?page=1&page_size=10&before=2026-10-28')
   })
 
   it('runs carry-forward for a given year', async () => {
@@ -114,12 +133,20 @@ describe('services/admin', () => {
     expect(error?.userMessage).toBe('Boom')
   })
 
-  it('reads org-wide requests for the dashboard and reminders queue', async () => {
+  it('reads the pending org subset for the dashboard and reminders queue', async () => {
     apiRequest.mockResolvedValueOnce([])
     const { rows, error } = await fetchOrgRequests()
     expect(error).toBeNull()
     expect(rows).toEqual([])
-    expect(apiRequest).toHaveBeenCalledWith('/leave-requests/team?limit=0')
+    expect(apiRequest).toHaveBeenCalledWith('/leave-requests/team?status=Pending')
+  })
+
+  it('pages the pending queue for the reminders board', async () => {
+    apiRequest.mockResolvedValueOnce({ rows: [], page: 2, page_size: 10, total: 0, page_count: 0 })
+    const { page, error } = await fetchPendingRequestsPage(2)
+    expect(error).toBeNull()
+    expect(page.page).toBe(2)
+    expect(apiRequest).toHaveBeenCalledWith('/leave-requests/team?page=2&page_size=10&status=Pending')
   })
 
   it('sends a nudge to selected recipients with the given copy', async () => {

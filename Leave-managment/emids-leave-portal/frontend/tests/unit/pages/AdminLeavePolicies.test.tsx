@@ -40,7 +40,10 @@ describe('pages/AdminLeavePolicies', () => {
       },
       error: null,
     })
-    vi.mocked(fetchAdminBalances).mockResolvedValue({ rows: [balance()], error: null })
+    vi.mocked(fetchAdminBalances).mockResolvedValue({
+      page: { rows: [balance()], page: 1, page_size: 10, total: 1, page_count: 1, year: new Date().getFullYear() },
+      error: null,
+    })
   })
 
   afterEach(() => vi.restoreAllMocks())
@@ -64,7 +67,7 @@ describe('pages/AdminLeavePolicies', () => {
   it('lists org balances for the selected year', async () => {
     setup()
     await waitFor(() => expect(screen.getByText('Vikram Deshmukh')).toBeInTheDocument())
-    expect(fetchAdminBalances).toHaveBeenCalledWith(new Date().getFullYear())
+    expect(fetchAdminBalances).toHaveBeenCalledWith(new Date().getFullYear(), 1)
   })
 
   it('saves a balance adjustment through the PUT endpoint', async () => {

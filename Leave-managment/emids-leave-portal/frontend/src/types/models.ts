@@ -190,6 +190,8 @@ export interface EmployeeAdminRow {
   system_role: SystemRole
   is_active: boolean
   created_at: string | null
+  /** Resolved by the API — pages no longer carry the whole directory. */
+  manager_name?: string | null
 }
 
 export interface EmployeeCreateInput {
@@ -228,9 +230,14 @@ export interface EmployeeCreateResult {
   temporary_password: string | null
 }
 
-export interface EmployeePage {
-  items: EmployeeAdminRow[]
+/* Server-paged envelope — mirrors the FastAPI paged contract
+   ({rows, page, page_size, total, page_count}) shared by every list board. */
+export interface Paginated<T> {
+  rows: T[]
+  page: number
+  page_size: number
   total: number
+  page_count: number
 }
 
 export interface AuditLogRow {
@@ -243,11 +250,6 @@ export interface AuditLogRow {
   detail_json: Record<string, unknown> | null
   request_ip: string | null
   created_at: string | null
-}
-
-export interface AuditLogPage {
-  items: AuditLogRow[]
-  total: number
 }
 
 export interface LeavePolicyConfig {

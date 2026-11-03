@@ -19,7 +19,7 @@ def test_admin_promotes_employee_to_manager(client, employee_factory, auth_heade
 
     # role retunes land in the audit trail like every other admin mutation
     logs = client.get("/admin/audit-logs?action=employee_updated", headers=headers).json()
-    assert logs["items"][0]["detail_json"]["system_role"] == {"before": "employee", "after": "manager"}
+    assert logs["rows"][0]["detail_json"]["system_role"] == {"before": "employee", "after": "manager"}
 
 
 @pytest.mark.integration
@@ -77,7 +77,7 @@ def test_admin_cannot_change_own_role(client, admin_factory, auth_headers):
     admin_factory("selfrole.admin@emids.com", role="admin")
     headers = auth_headers("selfrole.admin@emids.com")
 
-    me = client.get("/admin/employees", headers=headers).json()["items"][0]
+    me = client.get("/admin/employees", headers=headers).json()["rows"][0]
     response = client.put(
         f"/admin/employees/{me['id']}",
         json={"system_role": "manager"},

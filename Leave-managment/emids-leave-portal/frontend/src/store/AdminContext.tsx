@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from './AuthContext'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { TOAST_KIND } from '../constants'
 import {
   adminCreateEmployee,
@@ -13,7 +14,6 @@ import type {
   EmployeeAdminRow,
   EmployeeCreateInput,
   EmployeeCreateResult,
-  EmployeePage,
   EmployeeUpdateInput,
   PasswordResetInit,
 } from '../types/models'
@@ -21,9 +21,12 @@ import type {
 export interface AdminContextValue {
   employees: EmployeeAdminRow[]
   total: number
+  page: number
+  pageCount: number
   loading: boolean
   search: string
   setSearch: (value: string) => void
+  setPage: (page: number) => void
   reload: (search?: string) => void
   createEmployee: (input: EmployeeCreateInput) => Promise<EmployeeCreateResult | null>
   updateEmployee: (id: string, input: EmployeeUpdateInput) => Promise<EmployeeAdminRow | null>
@@ -35,10 +38,16 @@ export const AdminContext = createContext<AdminContextValue | null>(null)
 
 export function AdminProvider({ children }: { children: ReactNode }) {
   const { setToast } = useAuth()
-  const [page, setPage] = useState<EmployeePage>({ items: [], total: 0 })
+  const [rows, setRows] = useState<EmployeeAdminRow[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageCount, setPageCount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [reloadNonce, setReloadNonce] = useState(0)
+  // One debounced request per settled search, not one per keystroke.
+  const debouncedSearch = useDebouncedValue(search, 300)
+  const seq = useRef(0)
 
   const reload = useCallback((nextSearch?: string) => {
     if (nextSearch !== undefined) setSearch(nextSearch)
@@ -46,27 +55,32 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    let mounted = true
+    if (page !== 1) setPage(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch])
+
+  useEffect(() => {
+    const ticket = ++seq.current
     setLoading(true)
-    fetchAdminEmployees(search)
+    fetchAdminEmployees({ search: debouncedSearch || undefined, page })
       .then(({ page: fresh, error }) => {
-        if (!mounted) return
+        if (seq.current !== ticket) return
         setLoading(false)
         if (error) {
           setToast(error.userMessage, TOAST_KIND.Error)
           return
         }
-        setPage(fresh)
+        setRows(fresh.rows)
+        setTotal(fresh.total)
+        setPage(fresh.page)
+        setPageCount(fresh.page_count)
       })
       .catch(() => {
-        if (!mounted) return
+        if (seq.current !== ticket) return
         setLoading(false)
         setToast('Something went wrong. Please try again.', TOAST_KIND.Error)
       })
-    return () => {
-      mounted = false
-    }
-  }, [search, reloadNonce, setToast])
+  }, [page, debouncedSearch, reloadNonce, setToast])
 
   const createEmployee = useCallback(
     async (input: EmployeeCreateInput) => {
@@ -124,18 +138,21 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AdminContextValue>(
     () => ({
-      employees: page.items,
-      total: page.total,
+      employees: rows,
+      total,
+      page,
+      pageCount,
       loading,
       search,
       setSearch,
+      setPage: (next: number) => setPage(next),
       reload,
       createEmployee,
       updateEmployee,
       setEmployeeActive,
       initPasswordReset,
     }),
-    [page, loading, search, reload, createEmployee, updateEmployee, setEmployeeActive, initPasswordReset]
+    [rows, total, page, pageCount, loading, search, reload, createEmployee, updateEmployee, setEmployeeActive, initPasswordReset]
   )
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>
 }

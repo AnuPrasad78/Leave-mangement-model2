@@ -67,12 +67,15 @@ def test_admin_team_pagination_defaults_and_slices(client, employee_factory, lea
     first = apply(client, auth_headers("page.report@emids.com")).json()["requestNo"]
 
     rows = client.get("/leave-requests/team", headers=auth_headers("page.admin@emids.com")).json()
+    # No paging params -> the legacy full raw array.
+    assert len(rows) == 2
+    # Paging params -> the envelope contract.
     sliced = client.get(
-        "/leave-requests/team?limit=1&offset=1", headers=auth_headers("page.admin@emids.com")
+        "/leave-requests/team?page=2&page_size=1", headers=auth_headers("page.admin@emids.com")
     ).json()
-    assert len(rows) == 2  # default limit 100 shows everything
-    assert len(sliced) == 1
-    assert sliced[0]["request_no"] != first  # offset moved past the head
+    assert sliced["total"] == 2 and sliced["page"] == 2 and sliced["page_count"] == 2
+    assert len(sliced["rows"]) == 1
+    assert sliced["rows"][0]["request_no"] != first  # page 2 skipped the head row
 
 
 @pytest.mark.unit

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeReportsOf, editIssues, editPayload, type EditPick } from '../../../../src/features/admin/editEmployee'
+import { activeReportsOf, editIssues, editPayload, type EditContext, type EditPick } from '../../../../src/features/admin/editEmployee'
 import type { EmployeeAdminRow } from '../../../../src/types/models'
 
 const person = (over: Partial<EmployeeAdminRow>): EmployeeAdminRow => ({
@@ -41,6 +41,14 @@ describe('activeReportsOf', () => {
   })
 })
 
+// Per-edit data now arrives as a context object: the team fixture plays both
+// roles — its employee rows feed the settled-team guard, its manager rows
+// (active and inactive alike) feed the reports-to picker checks.
+const context = (): EditContext => ({
+  reports: team,
+  managers: team.filter((p) => p.system_role === 'manager'),
+})
+
 describe('editIssues', () => {
   const clean: EditPick = {
     system_role: 'employee',
@@ -50,24 +58,24 @@ describe('editIssues', () => {
   }
 
   it('passes a quiet job-title retune', () => {
-    const found = editIssues({ ...clean, manager_id: 'e-m2' }, team[4]!, team, 'e-admin')
+    const found = editIssues({ ...clean, manager_id: 'e-m2' }, team[4]!, context(), 'e-admin')
     expect(found.blocker).toBeNull()
     expect(found.fields).toEqual({})
   })
 
   it('demands a reporting manager for employees', () => {
-    const found = editIssues({ ...clean, manager_id: '' }, team[4]!, team, null)
+    const found = editIssues({ ...clean, manager_id: '' }, team[4]!, context(), null)
     expect(found.fields.manager_id).toBeTruthy()
   })
 
   it('rejects an unknown, inactive or self reporting manager', () => {
-    expect(editIssues({ ...clean, manager_id: 'e-nope' }, team[4]!, team, null).fields.manager_id).toBeTruthy()
-    expect(editIssues({ ...clean, manager_id: 'e-m3' }, team[4]!, team, null).fields.manager_id).toBeTruthy()
-    expect(editIssues({ ...clean, manager_id: 'e-x' }, team[4]!, team, null).fields.manager_id).toBeTruthy()
+    expect(editIssues({ ...clean, manager_id: 'e-nope' }, team[4]!, context(), null).fields.manager_id).toBeTruthy()
+    expect(editIssues({ ...clean, manager_id: 'e-m3' }, team[4]!, context(), null).fields.manager_id).toBeTruthy()
+    expect(editIssues({ ...clean, manager_id: 'e-x' }, team[4]!, context(), null).fields.manager_id).toBeTruthy()
   })
 
   it('requires a job title', () => {
-    const found = editIssues({ ...clean, job_title: '  ', manager_id: 'e-m2' }, team[4]!, team, null)
+    const found = editIssues({ ...clean, job_title: '  ', manager_id: 'e-m2' }, team[4]!, context(), null)
     expect(found.fields.job_title).toBeTruthy()
   })
 
@@ -75,18 +83,18 @@ describe('editIssues', () => {
     const found = editIssues(
       { ...clean, system_role: 'manager' },
       team[4]!,
-      team,
+      context(),
       team[4]!.id
     )
     expect(found.fields.system_role).toBeTruthy()
-    expect(editIssues({ ...clean }, team[4]!, team, team[4]!.id).fields.system_role).toBeUndefined()
+    expect(editIssues({ ...clean }, team[4]!, context(), team[4]!.id).fields.system_role).toBeUndefined()
   })
 
   it('blocks inactivating a manager with active reports', () => {
     const found = editIssues(
       { ...clean, system_role: 'manager', is_active: false, manager_id: '' },
       team[1]!,
-      team,
+      context(),
       null
     )
     expect(found.blocker).toMatch(/2 active direct reports/)
@@ -96,7 +104,7 @@ describe('editIssues', () => {
     const found = editIssues(
       { ...clean, system_role: 'employee', job_title: 'QA Lead', manager_id: 'e-m1' },
       team[1]!,
-      team,
+      context(),
       null
     )
     expect(found.blocker).toMatch(/2 active direct reports/)
@@ -106,7 +114,7 @@ describe('editIssues', () => {
     const found = editIssues(
       { ...clean, system_role: 'manager', is_active: false, manager_id: '' },
       team[2]!, // e-m3 has no active reports: inactivation is a clean move
-      team,
+      context(),
       null
     )
     expect(found.blocker).toBeNull()

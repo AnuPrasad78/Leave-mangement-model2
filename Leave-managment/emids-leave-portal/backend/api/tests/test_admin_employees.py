@@ -206,10 +206,10 @@ def test_list_searches_name_email_and_emp_no(client, admin_factory, employee_fac
     headers = auth_headers("search.admin@emids.com")
 
     by_name = client.get("/admin/employees?search=Vikram", headers=headers).json()
-    assert by_name["total"] == 1 and by_name["items"][0]["full_name"] == "Vikram Deshmukh"
+    assert by_name["total"] == 1 and by_name["rows"][0]["full_name"] == "Vikram Deshmukh"
 
     by_email = client.get("/admin/employees?search=vikram@emids", headers=headers).json()
     assert by_email["total"] == 1
 
-    emp_no = by_name["items"][0]["emp_no"]
+    emp_no = by_name["rows"][0]["emp_no"]
     assert client.get(f"/admin/employees?search={emp_no}", headers=headers).json()["total"] == 1

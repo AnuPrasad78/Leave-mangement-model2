@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Button, Field, PageHead } from '../components/ui'
+import { useCallback, useState } from 'react'
+import { Button, Field, PageHead, Pager } from '../components/ui'
 import { useAuth } from '../store/AuthContext'
+import { usePagedData } from '../hooks/usePagedData'
 import { TOAST_KIND } from '../constants'
 import { fetchAuditLogs } from '../services/admin'
 import { AuditLogTable } from '../components/feature/admin/AuditLogTable'
@@ -13,35 +14,31 @@ const ACTIONS = [
 
 export default function AdminAuditLogs() {
   const { setToast } = useAuth()
-  const [rows, setRows] = useState<AuditLogRow[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
   const [action, setAction] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [filtersApplied, setFiltersApplied] = useState(0)
 
-  useEffect(() => {
-    let mounted = true
-    setLoading(true)
-    fetchAuditLogs({
-      action: action || undefined,
-      date_from: dateFrom || undefined,
-      date_to: dateTo || undefined,
-    }).then(({ page, error }) => {
-      if (!mounted) return
-      setLoading(false)
-      if (error) {
-        setToast(error.userMessage, TOAST_KIND.Error)
-        return
-      }
-      setRows(page.items)
-      setTotal(page.total)
-    })
-    return () => {
-      mounted = false
-    }
-  }, [action, dateFrom, dateTo, filtersApplied, setToast])
+  const fetcher = useCallback(
+    async (page: number) => {
+      const result = await fetchAuditLogs(
+        {
+          action: action || undefined,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+        },
+        page
+      )
+      if (result.error) setToast(result.error.userMessage, TOAST_KIND.Error)
+      return result
+    },
+    [action, dateFrom, dateTo, setToast]
+  )
+  const { rows, total, page, pageCount, setPage, loading } = usePagedData<AuditLogRow>({
+    fetcher,
+    // any filter change re-enters at page 1
+    resetKeys: [action, dateFrom, dateTo, filtersApplied],
+  })
 
   return (
     <div className="page">
@@ -93,6 +90,7 @@ export default function AdminAuditLogs() {
         empty={loading ? 'Loading trail…' : undefined}
       />
       <p className="admin-count">Total {total}</p>
+      <Pager page={page} pageCount={pageCount} onChange={setPage} />
     </div>
   )
 }

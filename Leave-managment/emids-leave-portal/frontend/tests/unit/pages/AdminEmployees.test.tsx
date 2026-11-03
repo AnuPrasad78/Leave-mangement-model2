@@ -44,6 +44,9 @@ function renderPage(overrides: Partial<AdminContextValue> = {}, setToast = vi.fn
           {
             employees: [row()],
             total: 1,
+            page: 1,
+            pageCount: 1,
+            setPage: vi.fn(),
             loading: false,
             search: '',
             setSearch: vi.fn(),

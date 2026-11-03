@@ -11,8 +11,10 @@ const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabi
 
 export interface EditPersonModalProps {
   person: EmployeeAdminRow
-  /** Live directory — resolves manager picks and runs the settled-team guard. */
-  people: EmployeeAdminRow[]
+  /** Active manager-role list — the reports-to picker options. */
+  managers: EmployeeAdminRow[]
+  /** This person's report rows, fetched when the dialog opened. */
+  reports: EmployeeAdminRow[]
   /** Employee id of the signed-in admin (self-role changes are refused). */
   viewerId: string | null
   /** Persistence: resolves to an error string, or null once saved. */
@@ -28,7 +30,7 @@ const STATUS_OPTIONS = ['Active', 'Inactive'] as const
  * page owns persistence. Identity fields (name, email, emp no, DOJ) are
  * intentionally not editable here — Admin · Employees owns hiring.
  */
-export function EditPersonModal({ person, people, viewerId, onApply, onClose }: EditPersonModalProps) {
+export function EditPersonModal({ person, managers, reports, viewerId, onApply, onClose }: EditPersonModalProps) {
   const [pick, setPick] = useState<EditPick>(() => ({
     system_role: person.system_role,
     is_active: person.is_active,
@@ -74,19 +76,16 @@ export function EditPersonModal({ person, people, viewerId, onApply, onClose }: 
     }
   }, [onClose])
 
-  const issues = useMemo(() => editIssues(pick, person, people, viewerId), [pick, person, people, viewerId])
-  const reports = useMemo(() => activeReportsOf(person.id, people), [person, people])
+  const issues = useMemo(
+    () => editIssues(pick, person, { reports, managers }, viewerId),
+    [pick, person, reports, managers, viewerId]
+  )
+  const activeReports = useMemo(() => activeReportsOf(person.id, reports), [person, reports])
 
-  // Manager options: active managers, never the person themselves.
-  const managers = useMemo(
-    () =>
-      people
-        .filter(
-          (candidate) =>
-            candidate.system_role !== 'employee' && candidate.is_active && candidate.id !== person.id
-        )
-        .sort((a, b) => a.full_name.localeCompare(b.full_name)),
-    [people, person]
+  // Manager options: the picker list, minus the person themselves.
+  const managerOptions = useMemo(
+    () => managers.filter((candidate) => candidate.id !== person.id),
+    [managers, person]
   )
 
   const set = <K extends keyof EditPick>(key: K, value: EditPick[K]) => {
@@ -188,7 +187,7 @@ export function EditPersonModal({ person, people, viewerId, onApply, onClose }: 
                   onChange={(event) => set('manager_id', event.target.value)}
                 >
                   <option value="">— Select a manager —</option>
-                  {managers.map((manager) => (
+                  {managerOptions.map((manager) => (
                     <option key={manager.id} value={manager.id}>
                       {manager.full_name} · {manager.job_title ?? ''}
                     </option>
@@ -196,10 +195,10 @@ export function EditPersonModal({ person, people, viewerId, onApply, onClose }: 
                 </select>
               </Field>
 
-              {steppingAway && reports.length > 0 && (
+              {steppingAway && activeReports.length > 0 && (
                 <WarnBanner>
-                  <b>Team first</b> {person.full_name} has {reports.length} active direct{' '}
-                  {reports.length === 1 ? 'report' : 'reports'} — reassign or retire them before
+                  <b>Team first</b> {person.full_name} has {activeReports.length} active direct{' '}
+                  {activeReports.length === 1 ? 'report' : 'reports'} — reassign or retire them before
                   leaving the manager role or going inactive.
                 </WarnBanner>
               )}

@@ -149,14 +149,28 @@ class AuditLogOutput(BaseModel):
         return str(value) if value is not None else None
 
 
+class EmployeeAdminRowOutput(EmployeeAdminOutput):
+    """List-board row: carries the resolved reporting-manager name, so pages
+    stay self-contained under server-side paging."""
+
+    manager_name: str | None = None
+
+
+# Shared server-paged envelope (see app/pagination.py).
 class AuditLogsPageOutput(BaseModel):
-    items: list[AuditLogOutput]
+    rows: list[AuditLogOutput]
+    page: int
+    page_size: int
     total: int
+    page_count: int
 
 
 class EmployeesPageOutput(BaseModel):
-    items: list[EmployeeAdminOutput]
+    rows: list[EmployeeAdminRowOutput]
+    page: int
+    page_size: int
     total: int
+    page_count: int
 
 
 class EmployeeCreateOutput(BaseModel):

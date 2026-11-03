@@ -54,7 +54,7 @@ def test_carry_forward_creates_next_year_rows(client, admin_factory, employee_fa
 
     target = client.get(f"/admin/leave-balances?year={source_year + 1}", headers=admin_headers).json()
     assert target["total"] == 1
-    row = target["items"][0]
+    row = target["rows"][0]
     assert float(row["opening_annual"]) == 3.0  # remaining: 18 credited - 15 utilized
     assert float(row["contingency_credited"]) == 10.0
     assert float(row["annual_credited"]) == 22.0  # doj None -> full credit for the new year
@@ -74,12 +74,12 @@ def test_carry_forward_clamps_at_six_and_idempotent(client, admin_factory, emplo
     first = client.post("/admin/leave-requests/carry-forward", json={"year": source_year}, headers=admin_headers)
     assert first.status_code == 200
 
-    row = client.get(f"/admin/leave-balances?year={source_year + 1}", headers=admin_headers).json()["items"][0]
+    row = client.get(f"/admin/leave-balances?year={source_year + 1}", headers=admin_headers).json()["rows"][0]
     assert float(row["opening_annual"]) == 6.0
 
     second = client.post("/admin/leave-requests/carry-forward", json={"year": source_year}, headers=admin_headers)
     assert second.status_code == 200
-    row_again = client.get(f"/admin/leave-balances?year={source_year + 1}", headers=admin_headers).json()["items"][0]
+    row_again = client.get(f"/admin/leave-balances?year={source_year + 1}", headers=admin_headers).json()["rows"][0]
     assert float(row_again["opening_annual"]) == 6.0  # same result, idempotent
 
 
@@ -112,7 +112,7 @@ def test_carry_forward_zero_remaining_leaves_no_opening(client, admin_factory, e
         "/admin/leave-requests/carry-forward", json={"year": source_year}, headers=admin_headers
     ).status_code == 200
 
-    row = client.get(f"/admin/leave-balances?year={source_year + 1}", headers=admin_headers).json()["items"][0]
+    row = client.get(f"/admin/leave-balances?year={source_year + 1}", headers=admin_headers).json()["rows"][0]
     assert float(row["opening_annual"]) == 0.0
 
 
@@ -141,7 +141,7 @@ def test_carry_forward_ignores_contingency_only_balances(client, admin_factory, 
         "/admin/leave-requests/carry-forward", json={"year": source_year}, headers=admin_headers
     ).status_code == 200
 
-    row = client.get(f"/admin/leave-balances?year={source_year + 1}", headers=admin_headers).json()["items"][0]
+    row = client.get(f"/admin/leave-balances?year={source_year + 1}", headers=admin_headers).json()["rows"][0]
     assert float(row["opening_annual"]) == 0.0
 
 

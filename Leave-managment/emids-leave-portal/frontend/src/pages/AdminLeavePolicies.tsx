@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Button, Field, PageHead } from '../components/ui'
+import { useCallback, useEffect, useState } from 'react'
+import { Button, Field, PageHead, Pager } from '../components/ui'
 import { useAuth } from '../store/AuthContext'
+import { usePagedData } from '../hooks/usePagedData'
 import { TOAST_KIND } from '../constants'
 import { fetchAdminBalances, fetchLeavePolicies, adminUpsertBalance } from '../services/admin'
 import type { AdminBalanceRow, BalanceUpsertInput, LeavePolicyConfig } from '../types/models'
@@ -11,9 +12,9 @@ export default function AdminLeavePolicies() {
   const { setToast } = useAuth()
   const [config, setConfig] = useState<LeavePolicyConfig | null>(null)
   const [year, setYear] = useState(CURRENT_YEAR)
-  const [rows, setRows] = useState<AdminBalanceRow[]>([])
   const [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState<AdminBalanceRow | null>(null)
+  const [reloadNonce, setReloadNonce] = useState(0)
   const [form, setForm] = useState({ annual_credited: '', contingency_credited: '', opening_annual: '', annual_cap: '', contingency_cap: '' })
 
   useEffect(() => {
@@ -28,18 +29,12 @@ export default function AdminLeavePolicies() {
     }
   }, [setToast])
 
-  const loadBalances = (targetYear: number) => {
-    setYear(targetYear)
-    fetchAdminBalances(targetYear).then(({ rows: fresh, error }) => {
-      if (error) setToast(error.userMessage, TOAST_KIND.Error)
-      setRows(fresh)
-    })
-  }
-
-  useEffect(() => {
-    loadBalances(CURRENT_YEAR)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const fetcher = useCallback((page: number) => fetchAdminBalances(year, page), [year])
+  const { rows, total, page, pageCount, setPage, loading } = usePagedData<AdminBalanceRow>({
+    fetcher,
+    resetKeys: [year],
+    reloadNonce,
+  })
 
   const startEdit = (row: AdminBalanceRow) => {
     setEditing(row)
@@ -70,7 +65,7 @@ export default function AdminLeavePolicies() {
       }
       setToast('Balance saved', TOAST_KIND.Ok)
       setEditing(null)
-      loadBalances(year)
+      setReloadNonce((n) => n + 1)
     } finally {
       setBusy(false)
     }
@@ -100,7 +95,7 @@ export default function AdminLeavePolicies() {
         <div className="hl-panel-head">
           <h3>Balances</h3>
           <div className="hl-panel-head__right">
-            <select className="input" value={year} onChange={(event) => loadBalances(Number(event.target.value))}>
+            <select className="input" value={year} onChange={(event) => setYear(Number(event.target.value))}>
               {[CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2].map((option) => (
                 <option key={option} value={option}>{option}</option>
               ))}
@@ -122,7 +117,9 @@ export default function AdminLeavePolicies() {
             <tbody>
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="table__empty">No balances recorded for {year}.</td>
+                  <td colSpan={6} className="table__empty">
+                    {loading ? 'Loading balances…' : `No balances recorded for ${year}.`}
+                  </td>
                 </tr>
               )}
               {rows.map((row) => (
@@ -140,6 +137,8 @@ export default function AdminLeavePolicies() {
             </tbody>
           </table>
         </div>
+        <p className="admin-count">Total {total}</p>
+        <Pager page={page} pageCount={pageCount} onChange={setPage} />
       </div>
 
       {editing && (

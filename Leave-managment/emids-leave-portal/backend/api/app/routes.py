@@ -3,12 +3,13 @@ from decimal import Decimal
 
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import func, select, text
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.audit import record_audit
+from app.pagination import PageParams, page_params, paginate_query
 from app.db import get_session, settings
 from app.leave_policy import (
     ANNUAL_DAYS_PER_YEAR,
@@ -43,6 +44,7 @@ from app.schemas import (
     EmployeeAdminOutput,
     EmployeeCreateInput,
     EmployeeCreateOutput,
+    EmployeeAdminRowOutput,
     EmployeeOutput,
     EmployeeUpdateInput,
     EmployeesPageOutput,
@@ -154,23 +156,39 @@ def list_my_requests(
 
 @router.get("/leave-requests/team")
 def list_team_requests(
-    limit: int = 100,
-    offset: int = 0,
+    page: int | None = Query(default=None, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    status_filter: str | None = Query(default=None, alias="status", pattern="^(Pending|Approved|Rejected|Cancelled)$"),
     employee: Employee = Depends(current_employee), session: Session = Depends(get_session)
-) -> list[dict]:
+):
     if employee.system_role not in {SystemRole.MANAGER, SystemRole.ADMIN}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager access required")
-    if employee.system_role == SystemRole.ADMIN:
-        # Admins review the whole organization; managers only their own reports.
-        employee_ids = list(session.scalars(select(Employee.id).order_by(Employee.id)).all())
-    else:
-        employee_ids = list(
-            session.scalars(select(Employee.id).where(Employee.manager_id == employee.id)).all()
+
+    def query():
+        stmt = (
+            select(LeaveRequest, Employee, LeaveType)
+            .join(Employee, Employee.id == LeaveRequest.employee_id)
+            .join(LeaveType, LeaveType.id == LeaveRequest.leave_type_id)
         )
-    rows = request_rows(session, employee_ids)
-    if limit == 0:
-        return rows
-    return rows[offset : offset + limit]
+        # Managers review only their reports; admins review the whole organization.
+        if employee.system_role == SystemRole.MANAGER:
+            stmt = stmt.where(Employee.manager_id == employee.id)
+        if status_filter is not None:
+            stmt = stmt.where(LeaveRequest.status == LeaveStatus(status_filter))
+        return stmt
+
+    if page is None:
+        # Legacy full pull (no paging params): the manager queue and org
+        # aggregates need every row, so no envelope and no slicing.
+        return request_rows_query(session, query())
+    view = paginate_query(session, query(), PageParams(page=page, page_size=page_size),
+                          (LeaveRequest.requested_on.desc(), LeaveRequest.id.desc()), tuples=True)
+    return {**view, "rows": [request_payload(req, emp, ltype) for req, emp, ltype in view["rows"]]}
+
+
+def request_rows_query(session: Session, stmt) -> list[dict]:
+    rows = session.execute(stmt.order_by(LeaveRequest.requested_on.desc(), LeaveRequest.id.desc())).all()
+    return [request_payload(request, employee, leave_type) for request, employee, leave_type in rows]
 
 
 @router.post("/leave-requests", status_code=status.HTTP_201_CREATED)
@@ -785,15 +803,39 @@ def _admin_set_active(
     return {"ok": True}
 
 
-@router.get("/admin/employees")
+EMPLOYEE_SORT_COLUMNS = {
+    "full_name": Employee.full_name,
+    "doj": Employee.doj,
+    "emp_no": Employee.emp_no,
+}
+
+
+@router.get("/admin/employees", response_model=EmployeesPageOutput)
 def admin_list_employees(
     search: str | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    role: str | None = Query(default=None, pattern="^(employee|manager|admin)$"),
+    active: bool | None = None,
+    manager_id: str | None = None,
+    sort: str = Query(default="full_name", pattern="^(full_name|doj|emp_no)$"),
+    order: str = Query(default="asc", pattern="^(asc|desc)$"),
+    params: PageParams = Depends(page_params),
     admin: Employee = Depends(require_admin),
     session: Session = Depends(get_session),
 ) -> dict:
     query = select(Employee)
+    # A linked account that was switched off takes the row out of the active
+    # view; rows with no login at all always count as active.
+    if active is not None:
+        query = query.outerjoin(User, User.id == Employee.user_id)
+        query = query.where(
+            or_(Employee.user_id.is_(None), User.is_active.is_(True))
+            if active
+            else User.is_active.is_(False)
+        )
+    if role is not None:
+        query = query.where(Employee.system_role == SystemRole(role))
+    if manager_id:
+        query = query.where(Employee.manager_id == manager_id)
     if search:
         pattern = f"%{search}%"
         query = query.where(
@@ -801,26 +843,43 @@ def admin_list_employees(
             | Employee.email.ilike(pattern)
             | Employee.emp_no.ilike(pattern)
         )
-    total = session.scalar(select(func.count()).select_from(query.subquery()))
-    employees = session.scalars(
-        query.order_by(Employee.full_name).offset(max(offset, 0)).limit(max(min(limit, 500), 1))
-    ).all()
 
-    user_ids = [employee.user_id for employee in employees if employee.user_id is not None]
+    sort_col = EMPLOYEE_SORT_COLUMNS[sort]
+    direction = sort_col.desc() if order == "desc" else sort_col.asc()
+    view = paginate_query(session, query, params, (direction.nulls_last(), Employee.id.asc()))
+
+    user_ids = [employee.user_id for employee in view["rows"] if employee.user_id is not None]
     active_by_id: dict[str, bool] = {}
     if user_ids:
         for user in session.scalars(select(User).where(User.id.in_(user_ids))).all():
             active_by_id[user.id] = user.is_active
 
+    ids = sorted({employee.manager_id for employee in view["rows"] if employee.manager_id})
+    manager_names: dict[str, str] = {}
+    if ids:
+        manager_names = dict(
+            session.execute(select(Employee.id, Employee.full_name).where(Employee.id.in_(ids))).all()
+        )
+
     items = []
-    for employee in employees:
-        payload = employee_admin_payload(employee, session)
-        payload["is_active"] = active_by_id.get(employee.user_id, True)
+    for employee in view["rows"]:
+        payload = employee_admin_row_payload(employee, employee_admin_payload(employee, session), active_by_id, manager_names)
         items.append(payload)
-    return {"items": items, "total": total}
+    return {**view, "rows": items}
 
 
-@router.get("/admin/audit-logs")
+def employee_admin_row_payload(
+    employee: Employee,
+    payload: dict,
+    active_by_id: dict[str, bool],
+    manager_names: dict[str, str],
+) -> dict:
+    payload["is_active"] = active_by_id.get(employee.user_id, True)
+    payload["manager_name"] = manager_names.get(employee.manager_id)
+    return payload
+
+
+@router.get("/admin/audit-logs", response_model=AuditLogsPageOutput)
 def admin_list_audit_logs(
     employee_id: str | None = None,
     action: str | None = None,
@@ -828,8 +887,7 @@ def admin_list_audit_logs(
     target_id: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    params: PageParams = Depends(page_params),
     admin: Employee = Depends(require_admin),
     session: Session = Depends(get_session),
 ) -> dict:
@@ -848,14 +906,9 @@ def admin_list_audit_logs(
         query = query.where(func.date(AuditLog.created_at) >= date_from)
     if date_to is not None:
         query = query.where(func.date(AuditLog.created_at) <= date_to)
-    total = session.scalar(select(func.count()).select_from(query.subquery()))
-    rows = session.scalars(
-        query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
-        .offset(max(offset, 0))
-        .limit(max(min(limit, 500), 1))
-    ).all()
-    items = [AuditLogOutput.model_validate(row).model_dump(mode="json") for row in rows]
-    return {"items": items, "total": total}
+    view = paginate_query(session, query, params, (AuditLog.created_at.desc(), AuditLog.id.desc()))
+    view["rows"] = [AuditLogOutput.model_validate(row).model_dump(mode="json") for row in view["rows"]]
+    return view
 
 
 # --------------------------------------------------------------------------
@@ -969,19 +1022,27 @@ def admin_read_leave_policies(
 @router.get("/admin/leave-balances")
 def admin_list_leave_balances(
     year: int | None = None,
+    params: PageParams = Depends(page_params),
     admin: Employee = Depends(require_admin),
     session: Session = Depends(get_session),
 ) -> dict:
     if year is None:
         year = date.today().year
-    rows = session.execute(
-        select(LeaveBalance, Employee.full_name, Employee.emp_no, Employee.system_role)
-        .join(Employee, Employee.id == LeaveBalance.employee_id)
-        .where(LeaveBalance.year == year)
-        .order_by(Employee.full_name)
-    ).all()
+    def balances_query():
+        return (
+            select(LeaveBalance, Employee.full_name, Employee.emp_no, Employee.system_role)
+            .join(Employee, Employee.id == LeaveBalance.employee_id)
+            .where(LeaveBalance.year == year)
+        )
+    view = paginate_query(
+        session,
+        balances_query(),
+        params,
+        (Employee.full_name.asc(), Employee.id.asc()),
+        tuples=True,
+    )
     items = []
-    for balance, full_name, emp_no, system_role in rows:
+    for balance, full_name, emp_no, system_role in view["rows"]:
         payload = {column.name: getattr(balance, column.name) for column in LeaveBalance.__table__.columns}
         payload.pop("id", None)
         payload["employee"] = {
@@ -991,7 +1052,7 @@ def admin_list_leave_balances(
             "system_role": system_role.value,
         }
         items.append(payload)
-    return {"items": items, "total": len(items), "year": year}
+    return {**view, "rows": items, "year": year}
 
 
 @router.put("/admin/leave-balances/{employee_id}/{year}")
@@ -1067,30 +1128,35 @@ def admin_upsert_leave_balance(
 @router.get("/admin/requests/stale")
 def admin_list_stale_requests(
     before: date,
-    limit: int = 100,
-    offset: int = 0,
+    params: PageParams = Depends(page_params),
     admin: Employee = Depends(require_admin),
     session: Session = Depends(get_session),
-) -> list[dict]:
+) -> dict:
     """Past-dated pending requests (end_date < before) with leave-context evidence,
-    standing in for the attendance module this repo does not have (ADMIN_DECISIONS.md Q1)."""
-    rows = session.execute(
-        select(LeaveRequest, Employee, LeaveType)
-        .join(Employee, Employee.id == LeaveRequest.employee_id)
-        .join(LeaveType, LeaveType.id == LeaveRequest.leave_type_id)
-        .where(
-            LeaveRequest.status == LeaveStatus.PENDING,
-            LeaveRequest.end_date < before,
+    standing in for the attendance module this repo does not have (ADMIN_DECISIONS.md Q1).
+    Paging also bounds the per-row evidence lookups to the page itself."""
+    def stale_query():
+        return (
+            select(LeaveRequest, Employee, LeaveType)
+            .join(Employee, Employee.id == LeaveRequest.employee_id)
+            .join(LeaveType, LeaveType.id == LeaveRequest.leave_type_id)
+            .where(
+                LeaveRequest.status == LeaveStatus.PENDING,
+                LeaveRequest.end_date < before,
+            )
         )
-        .order_by(LeaveRequest.end_date, LeaveRequest.id)
-        .offset(max(offset, 0))
-        .limit(max(min(limit, 500), 1))
-    ).all()
+    view = paginate_query(
+        session,
+        stale_query(),
+        params,
+        (LeaveRequest.end_date.asc(), LeaveRequest.id.asc()),
+        tuples=True,
+    )
     items = []
-    for request, employee, leave_type in rows:
+    for request, employee, leave_type in view["rows"]:
         evidence = _leave_context_evidence(session, request)
         items.append({**request_payload(request, employee, leave_type), "evidence": evidence})
-    return items
+    return {**view, "rows": items}
 
 
 def _leave_context_evidence(session: Session, request: LeaveRequest) -> dict:

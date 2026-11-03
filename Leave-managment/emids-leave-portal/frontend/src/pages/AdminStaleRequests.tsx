@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Button, PageHead, PanelTable } from '../components/ui'
+import { useCallback, useState } from 'react'
+import { Button, PageHead, PanelTable, Pager } from '../components/ui'
 import { useAuth } from '../store/AuthContext'
+import { usePagedData } from '../hooks/usePagedData'
 import { TOAST_KIND, STATUSES } from '../constants'
 import { fetchStaleRequests } from '../services/admin'
 import { decide } from '../services/leaveRequests'
@@ -9,27 +10,21 @@ import type { StaleRequestRow } from '../types/models'
 
 export default function AdminStaleRequests() {
   const { setToast } = useAuth()
-  const [rows, setRows] = useState<StaleRequestRow[]>([])
-  const [loading, setLoading] = useState(true)
   const [deciding, setDeciding] = useState<string | null>(null)
+  const [reloadNonce, setReloadNonce] = useState(0)
 
-  const load = () => {
-    setLoading(true)
-    fetchStaleRequests(todayISO()).then(({ rows: fresh, error }) => {
-      setLoading(false)
-      if (error) {
-        setToast(error.userMessage, TOAST_KIND.Error)
-        setRows([])
-        return
-      }
-      setRows(fresh)
-    })
-  }
-
-  useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const fetcher = useCallback(
+    async (page: number) => {
+      const result = await fetchStaleRequests(todayISO(), page)
+      if (result.error) setToast(result.error.userMessage, TOAST_KIND.Error)
+      return result
+    },
+    [setToast]
+  )
+  const { rows, total, page, pageCount, setPage, loading } = usePagedData<StaleRequestRow>({
+    fetcher,
+    reloadNonce,
+  })
 
   const decideOne = async (requestNo: string, decision: 'Approved' | 'Rejected') => {
     setDeciding(requestNo)
@@ -40,7 +35,7 @@ export default function AdminStaleRequests() {
         return
       }
       setToast(decision === STATUSES.Approved ? 'Request approved' : 'Request rejected', TOAST_KIND.Ok)
-      load()
+      setReloadNonce((n) => n + 1)
     } finally {
       setDeciding(null)
     }
@@ -57,7 +52,7 @@ export default function AdminStaleRequests() {
 
       <PanelTable
         title="Past-dated pending requests"
-        count={String(rows.length)}
+        count={`${total} waiting`}
         columns={[
           { label: 'Employee', cell: (row) => <b>{row.employees?.full_name ?? '—'}</b> },
           { label: 'Type', cell: (row) => row.leave_types?.name ?? '—' },
@@ -113,6 +108,7 @@ export default function AdminStaleRequests() {
         rowKey={(row) => row.request_no}
         empty={loading ? 'Loading stale requests…' : 'Nothing stale — every pending request is still future-dated.'}
       />
+      <Pager page={page} pageCount={pageCount} onChange={setPage} />
     </div>
   )
 }

@@ -16,12 +16,22 @@ export interface EditIssues {
   fields: Record<string, string>
 }
 
-/** Active employees reporting directly to this person (settled-team guard input). */
+/** Active employees in the employee role reporting directly to this person
+ * (settled-team guard input). The page fetches the person's report rows; this
+ * keeps the pure filter out of JSX. */
 export function activeReportsOf(id: string, people: EmployeeAdminRow[]): EmployeeAdminRow[] {
   return people.filter(
     (person) =>
       person.system_role === 'employee' && person.is_active && person.manager_id === id
   )
+}
+
+/** Per-edit data the dialog resolves from the API instead of a full directory. */
+export interface EditContext {
+  /** This exact person's report rows (all roles) — narrowed with activeReportsOf. */
+  reports: EmployeeAdminRow[]
+  /** Active manager-role candidates for the reports-to picker. */
+  managers: EmployeeAdminRow[]
 }
 
 /**
@@ -35,7 +45,7 @@ export function activeReportsOf(id: string, people: EmployeeAdminRow[]): Employe
 export function editIssues(
   pick: EditPick,
   current: EmployeeAdminRow,
-  people: EmployeeAdminRow[],
+  context: EditContext,
   viewerId: string | null
 ): EditIssues {
   const fields: Record<string, string> = {}
@@ -43,7 +53,7 @@ export function editIssues(
   if (!pick.job_title.trim()) fields.job_title = 'Job title is required'
 
   if (pick.system_role === 'employee') {
-    const manager = people.find((person) => person.id === pick.manager_id)
+    const manager = context.managers.find((person) => person.id === pick.manager_id)
     if (!pick.manager_id) {
       fields.manager_id = 'Employees need a reporting manager'
     } else if (!manager || manager.system_role === 'employee') {
@@ -64,7 +74,7 @@ export function editIssues(
     (pick.system_role === 'employee' || !pick.is_active)
   let blocker: string | null = null
   if (losingTeam) {
-    const reports = activeReportsOf(current.id, people)
+    const reports = activeReportsOf(current.id, context.reports)
     if (reports.length > 0) {
       blocker =
         `${current.full_name} still has ${reports.length} active direct ` +
