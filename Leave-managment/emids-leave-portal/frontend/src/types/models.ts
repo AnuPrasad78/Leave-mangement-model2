@@ -169,3 +169,145 @@ export interface ToastModel {
   kind: ToastKind
   id: number
 }
+
+/* Admin persona ---------------------------------------------------------- */
+
+export interface EmployeeAdminRow {
+  id: string
+  user_id: string | null
+  emp_no: string
+  full_name: string
+  initials: string | null
+  email: string
+  job_title: string | null
+  doj: string | null
+  account: string | null
+  project_name: string | null
+  function_name: string | null
+  manager_id: string | null
+  delivery_partner_name: string | null
+  location: string | null
+  system_role: SystemRole
+  is_active: boolean
+}
+
+export interface EmployeeCreateInput {
+  full_name: string
+  email: string
+  system_role: 'employee' | 'manager'
+  temporary_password?: string | null
+  initials?: string | null
+  job_title?: string | null
+  doj?: string | null
+  account?: string | null
+  project_name?: string | null
+  function_name?: string | null
+  manager_id?: string | null
+  delivery_partner_name?: string | null
+  location?: string | null
+}
+
+export interface EmployeeUpdateInput {
+  full_name?: string
+  email?: string
+  initials?: string | null
+  job_title?: string | null
+  doj?: string | null
+  account?: string | null
+  project_name?: string | null
+  function_name?: string | null
+  manager_id?: string | null
+  delivery_partner_name?: string | null
+  location?: string | null
+}
+
+export interface EmployeeCreateResult {
+  employee: EmployeeAdminRow
+  temporary_password: string | null
+}
+
+export interface EmployeePage {
+  items: EmployeeAdminRow[]
+  total: number
+}
+
+export interface AuditLogRow {
+  id: number
+  actor_user_id: string | null
+  actor_employee_id: string | null
+  action: string
+  target_type: string
+  target_id: string | null
+  detail_json: Record<string, unknown> | null
+  request_ip: string | null
+  created_at: string | null
+}
+
+export interface AuditLogPage {
+  items: AuditLogRow[]
+  total: number
+}
+
+export interface LeavePolicyConfig {
+  annual_days_per_year: number
+  contingency_days_per_year: number
+  carry_forward_max: number
+  optional_holidays_max: number
+  prorated_by: string
+  proration_method: string
+}
+
+export interface AdminBalanceRow {
+  employee_id: string
+  year: number
+  opening_annual: number | string
+  annual_credited: number | string
+  annual_utilized: number | string
+  contingency_credited: number | string
+  contingency_utilized: number | string
+  annual_cap: number | string
+  contingency_cap: number | string
+  employee: { id: string; full_name: string; emp_no: string; system_role: SystemRole }
+}
+
+export interface BalanceUpsertInput {
+  annual_credited?: number | null
+  contingency_credited?: number | null
+  opening_annual?: number | null
+  annual_cap?: number | null
+  contingency_cap?: number | null
+}
+
+export interface StaleEvidence {
+  window: { from: string; to: string }
+  nearby_approved: Array<{
+    request_no: string
+    leave_type: string
+    start_date: string
+    end_date: string
+    status: string
+  }>
+  holidays: Array<{ holiday_date: string; name: string; kind: string }>
+}
+
+/* Raw row from GET /admin/requests/stale (snakes_case, like the API) */
+export interface StaleRequestRow {
+  request_no: string
+  employee_id: string
+  start_date: string
+  end_date: string
+  days: string | number
+  mode: LeaveMode
+  reason: string
+  status: RequestStatus
+  requested_on: string
+  leave_types?: { name: string } | null
+  employees?: { full_name: string; emp_no: string } | null
+  evidence: StaleEvidence
+}
+
+export interface PasswordResetInit {
+  reset_token: string
+  reset_endpoint: string
+  expires_at: string
+}

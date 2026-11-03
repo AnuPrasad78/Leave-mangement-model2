@@ -1,7 +1,8 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuth } from './store/AuthContext'
-import { canApprove } from './utils/roles'
+import { AdminProvider } from './store/AdminContext'
+import { canApprove, isAdmin } from './utils/roles'
 import ErrorBoundary from './utils/ErrorBoundary'
 import Layout from './components/Layout'
 import { Toast } from './components/ui'
@@ -13,6 +14,11 @@ import LeaveDetails from './pages/LeaveDetails'
 import LeaveRequests from './pages/LeaveRequests'
 import Holidays from './pages/Holidays'
 import SeparationRequest from './pages/SeparationRequest'
+import AdminDashboard from './pages/AdminDashboard'
+import AdminEmployees from './pages/AdminEmployees'
+import AdminLeavePolicies from './pages/AdminLeavePolicies'
+import AdminAuditLogs from './pages/AdminAuditLogs'
+import AdminStaleRequests from './pages/AdminStaleRequests'
 
 interface GuardProps {
   children: ReactNode
@@ -41,6 +47,25 @@ function ManagerOnly({ children }: ManagerOnlyProps) {
   return <Layout>{children}</Layout>
 }
 
+/* Admin persona only — managers and employees are redirected to the dashboard */
+interface AdminOnlyProps {
+  children: ReactNode
+}
+
+function AdminOnly({ children }: AdminOnlyProps) {
+  const { signedIn, authReady, profile } = useAuth()
+  const location = useLocation()
+  if (!authReady) return null
+  if (!signedIn) return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  if (!profile) return null
+  if (!isAdmin(profile)) return <Navigate to="/dashboard" replace />
+  return (
+    <Layout>
+      <AdminProvider>{children}</AdminProvider>
+    </Layout>
+  )
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -55,6 +80,12 @@ export default function App() {
         <Route path="/leave-requests" element={<ManagerOnly><LeaveRequests /></ManagerOnly>} />
         <Route path="/holidays" element={<Guard><Holidays /></Guard>} />
         <Route path="/separation-request" element={<Guard><SeparationRequest /></Guard>} />
+
+        <Route path="/admin" element={<AdminOnly><AdminDashboard /></AdminOnly>} />
+        <Route path="/admin/employees" element={<AdminOnly><AdminEmployees /></AdminOnly>} />
+        <Route path="/admin/leave-policies" element={<AdminOnly><AdminLeavePolicies /></AdminOnly>} />
+        <Route path="/admin/audit-logs" element={<AdminOnly><AdminAuditLogs /></AdminOnly>} />
+        <Route path="/admin/requests-stale" element={<AdminOnly><AdminStaleRequests /></AdminOnly>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

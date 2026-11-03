@@ -47,8 +47,9 @@ def test_balance_appears_after_approval(client, employee_factory, leave_types, a
     body = client.get("/balances/me", headers=emp_headers).json()
     assert body["year"] == 2027
     # Numeric columns arrive JSON-serialized as strings (pydantic Any-serializer on a dict payload)
+    # Factory employees have no DOJ, so the policy module credits the full 22 (was hardcoded 18)
     assert float(body["annual_utilized"]) == 5.0
-    assert float(body["annual_credited"]) == 18.0
+    assert float(body["annual_credited"]) == 22.0
 
 
 @pytest.mark.integration

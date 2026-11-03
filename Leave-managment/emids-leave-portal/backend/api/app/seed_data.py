@@ -5,8 +5,16 @@ from app.models import LeaveMode, LeaveStatus, SystemRole
 
 
 MANAGER_EMAIL = "prastina.mary@emids.com"
+ADMIN_EMAIL = "admin@emids.com"
 
 EMPLOYEES = [
+    {
+        "full_name": "Portal Admin",
+        "initials": "PA",
+        "email": ADMIN_EMAIL,
+        "job_title": "Administrator",
+        "system_role": SystemRole.ADMIN,
+    },
     {
         "full_name": "Prastina Mary",
         "initials": "PM",

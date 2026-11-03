@@ -14,6 +14,7 @@ from app.models import (
 )
 from app.security import hash_password
 from app.seed_data import (
+    ADMIN_EMAIL,
     BALANCES,
     DEMO_REQUESTS,
     EMPLOYEES,
@@ -66,7 +67,7 @@ def seed_demo_data() -> None:
 
         manager_id = employees_by_email[MANAGER_EMAIL].id
         for email, employee in employees_by_email.items():
-            if email not in {MANAGER_EMAIL, "sandeep.venkateshkamath@emids.com"}:
+            if email not in {MANAGER_EMAIL, ADMIN_EMAIL, "sandeep.venkateshkamath@emids.com"}:
                 employee.manager_id = manager_id
 
         leave_types_by_name: dict[str, LeaveType] = {}
@@ -144,7 +145,7 @@ def seed_demo_data() -> None:
                 )
             )
 
-    print("Seeded 11 login profiles, 12 leave types, 3 requests, 3 balances, and 109 India holidays.")
+    print(f"Seeded {len(EMPLOYEES)} login profiles, {len(LEAVE_TYPES)} leave types, 3 requests, 3 balances, and 109 India holidays.")
 
 
 def upsert_holiday(session, values: dict) -> None:

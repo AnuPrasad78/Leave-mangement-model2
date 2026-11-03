@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/AuthContext'
 import { useDismiss } from '../hooks/useDismiss'
-import { canApprove } from '../utils/roles'
+import { canApprove, isAdmin } from '../utils/roles'
 import { fmtDays } from '../utils/format'
 import { balanceRow } from '../utils/balances'
 import { STATUSES } from '../constants'
@@ -23,6 +23,7 @@ export interface NavItem {
   num: string
   label: string
   icon: IconComponent
+  admin?: boolean
 }
 
 export const NAV: NavItem[] = [
@@ -32,6 +33,11 @@ export const NAV: NavItem[] = [
   { to: '/leave-requests', num: '4', label: 'Leave Requests', icon: IconClipboardCheck },
   { to: '/holidays', num: '5', label: 'Holiday Calendar', icon: IconSun },
   { to: '/separation-request', num: '6', label: 'Separation Request', icon: IconDoor },
+  { to: '/admin', num: '7', label: 'Admin · Overview', icon: IconDashboard, admin: true },
+  { to: '/admin/employees', num: '8', label: 'Admin · Employees', icon: IconUser, admin: true },
+  { to: '/admin/leave-policies', num: '9', label: 'Admin · Policies', icon: IconSun, admin: true },
+  { to: '/admin/audit-logs', num: '10', label: 'Admin · Audit Logs', icon: IconFileText, admin: true },
+  { to: '/admin/requests-stale', num: '11', label: 'Admin · Stale Review', icon: IconClipboardCheck, admin: true },
 ]
 
 export interface LayoutProps {
@@ -47,7 +53,26 @@ export default function Layout({ children }: LayoutProps) {
   const drawerRef = useRef<HTMLDivElement | null>(null)
   useDismiss(drawerRef, { onClose: () => setOpen(false), enabled: open })
 
-  const pendingRequests = team.filter((r) => r.status === STATUSES.Pending).length
+  const visibleNav = useMemo(
+    () => NAV.filter((n) => canApprove(profile) || n.to !== '/leave-requests'),
+    [profile]
+  )
+
+  const pendingRequests = teamRows.filter((r) => r.status === STATUSES.Pending).length
+
+  const notifications = useMemo(() => buildNotifications(profile, mineRows, teamRows), [profile, mineRows, teamRows])
+  const unseenCount = useMemo(
+    () => notifications.filter((n) => !seenNotifs.has(n.key)).length,
+    [notifications, seenNotifs]
+  )
+  const markNotificationsSeen = useCallback(() => {
+    setSeenNotifs((prev) => {
+      if (notifications.every((n) => prev.has(n.key))) return prev
+      const next = new Set(prev)
+      notifications.forEach((n) => next.add(n.key))
+      return next
+    })
+  }, [notifications])
 
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   const weekday = new Date().toLocaleDateString('en-GB', { weekday: 'long' })

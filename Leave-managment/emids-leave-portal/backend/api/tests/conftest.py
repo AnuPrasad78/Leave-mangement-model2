@@ -262,6 +262,7 @@ def employee_factory(db_engine):
         full_name: str | None = None,
         is_active: bool = True,
         link_user: bool = True,
+        doj=None,
     ) -> Employee:
         with factory() as db_session:
             user = User(email=email, password_hash=_hash(password), is_active=is_active)
@@ -273,11 +274,23 @@ def employee_factory(db_engine):
                 full_name=full_name or email.split("@")[0].replace(".", " ").title(),
                 system_role=role,
                 manager_id=manager.id if manager else None,
+                doj=doj,
             )
             db_session.add(employee)
             db_session.commit()
             db_session.refresh(employee)
             return employee
+
+    return _create
+
+
+@pytest.fixture
+def admin_factory(employee_factory):
+    """Thin wrapper: creates a User + Employee with system_role=admin."""
+
+    def _create(*args, **kwargs):
+        kwargs.setdefault("role", "admin")
+        return employee_factory(*args, **kwargs)
 
     return _create
 

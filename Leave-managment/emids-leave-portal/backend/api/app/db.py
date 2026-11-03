@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     OTEL_EXPORTER_OTLP_ENDPOINT: str = ""
     DEMO_PASSWORD: str | None = None
+    PASSWORD_RESET_TTL_MINUTES: int = 60
 
     model_config = SettingsConfigDict(env_file=Path(__file__).resolve().parents[1] / ".env", extra="ignore")
 

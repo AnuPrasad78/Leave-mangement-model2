@@ -50,7 +50,8 @@ def test_manager_approval_creates_and_debits_pools(client, employee_factory, lea
     balance = balance_of(client, emp_headers)
     assert balance["year"] == 2027
     # Numeric columns arrive JSON-serialized as strings (pydantic Any-serializer on a dict payload)
-    assert float(balance["annual_credited"]) == 18.0
+    # Factory employees have no DOJ, so the policy module credits the full 22 (was hardcoded 18)
+    assert float(balance["annual_credited"]) == 22.0
     assert float(balance["annual_utilized"]) == 5.0
     assert float(balance["contingency_credited"]) == 10.0
     assert float(balance["contingency_utilized"]) == 0.0

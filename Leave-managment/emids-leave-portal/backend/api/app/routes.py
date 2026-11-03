@@ -1,13 +1,25 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import secrets
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.db import get_session
+from app.audit import record_audit
+from app.db import get_session, settings
+from app.leave_policy import (
+    ANNUAL_DAYS_PER_YEAR,
+    CARRY_FORWARD_MAX,
+    CONTINGENCY_DAYS_PER_YEAR,
+    OPTIONAL_HOLIDAYS_MAX,
+    carry_forward_amount,
+    prorated_annual,
+)
 from app.models import (
+    AuditLog,
     Employee,
     Holiday,
     LeaveBalance,
@@ -15,24 +27,37 @@ from app.models import (
     LeaveRequest,
     LeaveStatus,
     LeaveType,
+    Notification,
     OptionalHolidayPick,
+    PasswordResetToken,
     SeparationRequest,
     SystemRole,
     User,
 )
 from app.schemas import (
+    AuditLogOutput,
+    AuditLogsPageOutput,
+    BalanceUpsertInput,
     BulkDecisionInput,
     DecisionInput,
+    EmployeeAdminOutput,
+    EmployeeCreateInput,
+    EmployeeCreateOutput,
     EmployeeOutput,
+    EmployeeUpdateInput,
+    EmployeesPageOutput,
+    CarryForwardInput,
     LeaveRequestInput,
     LeaveRequestUpdateInput,
     LoginInput,
     OptionalPickInput,
+    PasswordResetPerformInput,
+    PasswordResetInitOutput,
     SeparationInput,
     TokenOutput,
 
 )
-from app.security import create_access_token, get_current_user, verify_password
+from app.security import create_access_token, get_current_user, hash_password, require_admin, verify_password
 
 router = APIRouter()
 
@@ -128,12 +153,23 @@ def list_my_requests(
 
 @router.get("/leave-requests/team")
 def list_team_requests(
+    limit: int = 100,
+    offset: int = 0,
     employee: Employee = Depends(current_employee), session: Session = Depends(get_session)
 ) -> list[dict]:
     if employee.system_role not in {SystemRole.MANAGER, SystemRole.ADMIN}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager access required")
-    report_ids = list(session.scalars(select(Employee.id).where(Employee.manager_id == employee.id)).all())
-    return request_rows(session, report_ids)
+    if employee.system_role == SystemRole.ADMIN:
+        # Admins review the whole organization; managers only their own reports.
+        employee_ids = list(session.scalars(select(Employee.id).order_by(Employee.id)).all())
+    else:
+        employee_ids = list(
+            session.scalars(select(Employee.id).where(Employee.manager_id == employee.id)).all()
+        )
+    rows = request_rows(session, employee_ids)
+    if limit == 0:
+        return rows
+    return rows[offset : offset + limit]
 
 
 @router.post("/leave-requests", status_code=status.HTTP_201_CREATED)
@@ -255,14 +291,19 @@ def update_balance_for_decision(session: Session, request: LeaveRequest, decisio
         return
     pool = "contingency" if leave_type.name == "Contingency Bucket" else "annual"
     year = request.start_date.year
+    request_employee = session.get(Employee, request.employee_id)
+    if request_employee is None:
+        raise HTTPException(status_code=409, detail="Could not load employee profile")
     values = {
         "employee_id": request.employee_id,
         "year": year,
         "opening_annual": Decimal("0"),
-        "annual_credited": Decimal("18"),
+        "annual_credited": prorated_annual(request_employee.doj, year),
         "annual_utilized": Decimal("0"),
-        "contingency_credited": Decimal("10"),
+        "contingency_credited": CONTINGENCY_DAYS_PER_YEAR,
         "contingency_utilized": Decimal("0"),
+        "annual_cap": ANNUAL_DAYS_PER_YEAR,
+        "contingency_cap": CONTINGENCY_DAYS_PER_YEAR,
     }
     session.execute(
         insert(LeaveBalance).values(**values).on_conflict_do_nothing(
@@ -306,11 +347,13 @@ def decide_requests(
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only pending requests can be decided")
     try:
         for request in requests:
+            request_employee = session.get(Employee, request.employee_id)
             if decision == LeaveStatus.APPROVED:
                 update_balance_for_decision(session, request, decision)
             request.status = decision
             request.approver_id = employee.id
             request.decided_at = datetime.now(timezone.utc)
+            _notify_decision(session, request, request_employee, employee, decision)
         session.commit()
     except HTTPException:
         session.rollback()
@@ -453,8 +496,11 @@ def add_pick(
                 Holiday.year == holiday.year,
             )
         )
-        if count >= 3:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You can choose only 3 optional holidays per year")
+        if count >= OPTIONAL_HOLIDAYS_MAX:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"You can choose only {OPTIONAL_HOLIDAYS_MAX} optional holidays per year",
+            )
         session.add(OptionalHolidayPick(employee_id=employee.id, holiday_id=holiday.id))
         session.commit()
     except HTTPException:
@@ -495,3 +541,664 @@ def create_separation_request(
     )
     session.commit()
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------
+# Admin persona (Phases 3+): audit, employee management, policies, balances.
+# Mutating admin endpoints are audited; list reads are not (they would flood
+# the append-only table), noted in the handoff report.
+# --------------------------------------------------------------------------
+
+def employee_admin_payload(employee: Employee, session: Session) -> dict:
+    is_active = True
+    if employee.user_id is not None:
+        user = session.get(User, employee.user_id)
+        if user is not None:
+            is_active = user.is_active
+    payload = EmployeeOutput.model_validate(employee).model_dump(mode="json")
+    payload["is_active"] = is_active
+    return payload
+
+
+def _audit(request: Request, admin: Employee, session: Session, action: str, target_type: str, target_id: str | None, detail: dict | None = None) -> None:
+    record_audit(
+        session,
+        actor=admin,
+        action=action,
+        target_type=target_type,
+        target_id=target_id,
+        detail=detail,
+        request_ip=request.client.host if request.client else None,
+    )
+
+
+def _jsonable(value):
+    """JSONB detail columns need plain JSON types (dates and Decimals especially)."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    return value
+
+
+@router.post("/admin/employees", status_code=status.HTTP_201_CREATED)
+def admin_create_employee(
+    payload: EmployeeCreateInput,
+    request: Request,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> EmployeeCreateOutput:
+    if payload.manager_id is not None and session.get(Employee, payload.manager_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Manager not found")
+
+    temporary_password = payload.temporary_password or secrets.token_urlsafe(12)
+    try:
+        user = User(email=payload.email, password_hash=hash_password(temporary_password), is_active=True)
+        session.add(user)
+        session.flush()
+        employee = Employee(
+            email=payload.email,
+            user_id=user.id,
+            full_name=payload.full_name,
+            initials=payload.initials,
+            job_title=payload.job_title,
+            doj=payload.doj,
+            account=payload.account,
+            project_name=payload.project_name,
+            function_name=payload.function_name,
+            manager_id=payload.manager_id,
+            delivery_partner_name=payload.delivery_partner_name,
+            location=payload.location,
+            system_role=SystemRole(payload.system_role),
+        )
+        session.add(employee)
+        session.commit()
+    except Exception as error:
+        session.rollback()
+        if "employees_email_key" in str(error) or "users_email_key" in str(error) or "unique" in str(error).lower():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered") from error
+        if "employees_manager_id_fkey" in str(error):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Manager not found") from error
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Could not create employee") from error
+    session.refresh(employee)
+    _audit(request, admin, session, "employee_created", "employee", employee.id, {
+        "email": employee.email,
+        "system_role": employee.system_role.value,
+        "manager_id": employee.manager_id,
+    })
+    session.commit()
+    return EmployeeCreateOutput(
+        employee=employee_admin_payload(employee, session),  # pydantic coerces the dict
+        temporary_password=payload.temporary_password if payload.temporary_password else temporary_password,
+    )
+
+
+@router.put("/admin/employees/{employee_id}")
+def admin_update_employee(
+    employee_id: str,
+    payload: EmployeeUpdateInput,
+    request: Request,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    employee = session.get(Employee, employee_id)
+    if employee is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+
+    values = payload.model_dump(exclude_unset=True)
+    if not values:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No fields to update")
+
+    if values.get("manager_id"):
+        if session.get(Employee, values["manager_id"]) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Manager not found")
+        if values["manager_id"] == employee.id:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="An employee cannot be their own manager")
+
+    if "email" in values and values["email"] != employee.email:
+        duplicate = session.scalar(select(Employee).where(func.lower(Employee.email) == values["email"].lower()))
+        if duplicate is not None and duplicate.id != employee.id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+
+    before = {field: getattr(employee, field) for field in values}
+    for field, value in values.items():
+        setattr(employee, field, value)
+    if "email" in values and employee.user_id is not None:
+        linked_user = session.get(User, employee.user_id)
+        if linked_user is not None:
+            linked_user.email = values["email"]
+
+    try:
+        session.commit()
+    except Exception as error:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Could not update employee") from error
+
+    session.refresh(employee)
+    _audit(request, admin, session, "employee_updated", "employee", employee.id, {
+        field: {"before": _jsonable(before[field]), "after": _jsonable(getattr(employee, field))}
+        for field in values
+    })
+    session.commit()
+    return employee_admin_payload(employee, session)
+
+
+@router.post("/admin/employees/{employee_id}/deactivate")
+def admin_deactivate_employee(
+    employee_id: str,
+    request: Request,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    return _admin_set_active(employee_id, False, admin, session, request)
+
+
+@router.post("/admin/employees/{employee_id}/activate")
+def admin_activate_employee(
+    employee_id: str,
+    request: Request,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    return _admin_set_active(employee_id, True, admin, session, request)
+
+
+def _admin_set_active(
+    employee_id: str, active: bool, admin: Employee, session: Session, request: Request
+) -> dict:
+    employee = session.get(Employee, employee_id)
+    if employee is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    if employee.user_id is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No linked login for this employee")
+    user = session.get(User, employee.user_id)
+    if user is None or user.is_active == active:
+        return {"ok": True}
+    user.is_active = active
+    session.commit()
+    _audit(request, admin, session, "employee_deactivated" if not active else "employee_activated", "employee", employee.id)
+    session.commit()
+    return {"ok": True}
+
+
+@router.get("/admin/employees")
+def admin_list_employees(
+    search: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    query = select(Employee)
+    if search:
+        pattern = f"%{search}%"
+        query = query.where(
+            Employee.full_name.ilike(pattern)
+            | Employee.email.ilike(pattern)
+            | Employee.emp_no.ilike(pattern)
+        )
+    total = session.scalar(select(func.count()).select_from(query.subquery()))
+    employees = session.scalars(
+        query.order_by(Employee.full_name).offset(max(offset, 0)).limit(max(min(limit, 500), 1))
+    ).all()
+
+    user_ids = [employee.user_id for employee in employees if employee.user_id is not None]
+    active_by_id: dict[str, bool] = {}
+    if user_ids:
+        for user in session.scalars(select(User).where(User.id.in_(user_ids))).all():
+            active_by_id[user.id] = user.is_active
+
+    items = []
+    for employee in employees:
+        payload = employee_admin_payload(employee, session)
+        payload["is_active"] = active_by_id.get(employee.user_id, True)
+        items.append(payload)
+    return {"items": items, "total": total}
+
+
+@router.get("/admin/audit-logs")
+def admin_list_audit_logs(
+    employee_id: str | None = None,
+    action: str | None = None,
+    target_type: str | None = None,
+    target_id: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    query = select(AuditLog)
+    if employee_id is not None:
+        query = query.where(
+            AuditLog.actor_employee_id == employee_id
+        )
+    if action is not None:
+        query = query.where(AuditLog.action == action)
+    if target_type is not None:
+        query = query.where(AuditLog.target_type == target_type)
+    if target_id is not None:
+        query = query.where(AuditLog.target_id == target_id)
+    if date_from is not None:
+        query = query.where(func.date(AuditLog.created_at) >= date_from)
+    if date_to is not None:
+        query = query.where(func.date(AuditLog.created_at) <= date_to)
+    total = session.scalar(select(func.count()).select_from(query.subquery()))
+    rows = session.scalars(
+        query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .offset(max(offset, 0))
+        .limit(max(min(limit, 500), 1))
+    ).all()
+    items = [AuditLogOutput.model_validate(row).model_dump(mode="json") for row in rows]
+    return {"items": items, "total": total}
+
+
+# --------------------------------------------------------------------------
+# Password reset (Phase 4): admin initializes, employee self-serves the new
+# password through the public endpoint. Tokens are stored hashed and are
+# single-use; delivery is admin-copied (see ADMIN_DECISIONS.md Q4).
+# --------------------------------------------------------------------------
+
+
+@router.post("/admin/employee-password-resets/{user_id}/init")
+def admin_init_password_reset(
+    user_id: str,
+    request: Request,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot reset the password of a deactivated user; reactivate first",
+        )
+
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.PASSWORD_RESET_TTL_MINUTES)
+    session.add(
+        PasswordResetToken(
+            user_id=user.id,
+            token_hash=hash_password(token),
+            expires_at=expires_at,
+            created_by=admin.user_id,
+        )
+    )
+    _audit(
+        request, admin, session, "password_reset_initialized", "user", user.id,
+        {"expires_at": expires_at.isoformat()},
+    )
+    session.commit()
+    return PasswordResetInitOutput(
+        reset_token=token,
+        reset_endpoint=f"/auth/password-reset/{token}",
+        expires_at=expires_at,
+    ).model_dump(mode="json")
+
+
+@router.post("/auth/password-reset/{token}")
+def perform_password_reset(
+    token: str,
+    payload: PasswordResetPerformInput,
+    session: Session = Depends(get_session),
+) -> dict[str, bool]:
+    now = datetime.now(timezone.utc)
+    live_tokens = session.scalars(
+        select(PasswordResetToken).where(
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at > now,
+        )
+    ).all()
+    match = next(
+        (row for row in live_tokens if verify_password(token, row.token_hash)), None
+    )
+    if match is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token"
+        )
+    user = session.get(User, match.user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+
+    user.password_hash = hash_password(payload.password)
+    match.used_at = now
+    for stale in live_tokens:
+        if stale.user_id == match.user_id and stale.id != match.id:
+            stale.used_at = now
+    session.commit()
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------
+# Leave policies and balances (Phase 5)
+# --------------------------------------------------------------------------
+
+
+@router.get("/admin/leave-policies")
+def admin_read_leave_policies(
+    admin: Employee = Depends(require_admin),
+) -> dict:
+    from app.leave_policy import (
+        ANNUAL_DAYS_PER_YEAR,
+        CONTINGENCY_DAYS_PER_YEAR,
+        CARRY_FORWARD_MAX,
+        OPTIONAL_HOLIDAYS_MAX,
+        PRORATION_METHOD,
+    )
+
+    return {
+        "annual_days_per_year": float(ANNUAL_DAYS_PER_YEAR),
+        "contingency_days_per_year": float(CONTINGENCY_DAYS_PER_YEAR),
+        "carry_forward_max": float(CARRY_FORWARD_MAX),
+        "optional_holidays_max": OPTIONAL_HOLIDAYS_MAX,
+        "prorated_by": "doj",
+        "proration_method": PRORATION_METHOD,
+    }
+
+
+@router.get("/admin/leave-balances")
+def admin_list_leave_balances(
+    year: int | None = None,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    if year is None:
+        year = date.today().year
+    rows = session.execute(
+        select(LeaveBalance, Employee.full_name, Employee.emp_no, Employee.system_role)
+        .join(Employee, Employee.id == LeaveBalance.employee_id)
+        .where(LeaveBalance.year == year)
+        .order_by(Employee.full_name)
+    ).all()
+    items = []
+    for balance, full_name, emp_no, system_role in rows:
+        payload = {column.name: getattr(balance, column.name) for column in LeaveBalance.__table__.columns}
+        payload.pop("id", None)
+        payload["employee"] = {
+            "id": balance.employee_id,
+            "full_name": full_name,
+            "emp_no": emp_no,
+            "system_role": system_role.value,
+        }
+        items.append(payload)
+    return {"items": items, "total": len(items), "year": year}
+
+
+@router.put("/admin/leave-balances/{employee_id}/{year}")
+def admin_upsert_leave_balance(
+    employee_id: str,
+    year: int,
+    payload: BalanceUpsertInput,
+    request: Request,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    employee = session.get(Employee, employee_id)
+    if employee is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+
+    balance = session.scalar(
+        select(LeaveBalance).where(
+            LeaveBalance.employee_id == employee_id, LeaveBalance.year == year
+        )
+    )
+    existed = balance is not None
+    if not existed:
+        balance = LeaveBalance(employee_id=employee_id, year=year)
+        session.add(balance)
+        session.flush()
+
+    changes = payload.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No fields to update")
+
+    floor_field = {
+        "annual_credited": balance.annual_utilized,
+        "opening_annual": balance.annual_utilized,
+        "annual_cap": balance.annual_utilized,
+        "contingency_credited": balance.contingency_utilized,
+        "contingency_cap": balance.contingency_utilized,
+    }
+    for field, value in changes.items():
+        if value is not None and value < floor_field[field]:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"{field} cannot go below what has already been utilized",
+            )
+
+    before = {field: getattr(balance, field) for field in changes}
+    for field, value in changes.items():
+        setattr(balance, field, value)
+
+    try:
+        session.commit()
+    except Exception as error:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Could not save the balance") from error
+
+    session.refresh(balance)
+    detail = {
+        field: {"before": _jsonable(before[field]), "after": _jsonable(getattr(balance, field))}
+        for field in changes
+    }
+    if not existed:
+        detail["employee"] = employee.full_name
+        detail["year"] = year
+    _audit(
+        request, admin, session,
+        "balance_created" if not existed else "balance_updated",
+        "leave_balance", f"{employee_id}:{year}",
+        detail,
+    )
+    session.commit()
+    return {column.name: getattr(balance, column.name) for column in LeaveBalance.__table__.columns}
+
+
+@router.get("/admin/requests/stale")
+def admin_list_stale_requests(
+    before: date,
+    limit: int = 100,
+    offset: int = 0,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """Past-dated pending requests (end_date < before) with leave-context evidence,
+    standing in for the attendance module this repo does not have (ADMIN_DECISIONS.md Q1)."""
+    rows = session.execute(
+        select(LeaveRequest, Employee, LeaveType)
+        .join(Employee, Employee.id == LeaveRequest.employee_id)
+        .join(LeaveType, LeaveType.id == LeaveRequest.leave_type_id)
+        .where(
+            LeaveRequest.status == LeaveStatus.PENDING,
+            LeaveRequest.end_date < before,
+        )
+        .order_by(LeaveRequest.end_date, LeaveRequest.id)
+        .offset(max(offset, 0))
+        .limit(max(min(limit, 500), 1))
+    ).all()
+    items = []
+    for request, employee, leave_type in rows:
+        evidence = _leave_context_evidence(session, request)
+        items.append({**request_payload(request, employee, leave_type), "evidence": evidence})
+    return items
+
+
+def _leave_context_evidence(session: Session, request: LeaveRequest) -> dict:
+    """Approved Work From Home / Business Travel requests in a ±7-day neighborhood
+    of the request window plus holidays inside it, as read-only context for the
+    reviewing admin. Truly overlapping rows can never exist (the no-active-overlap
+    exclusion constraint), so the neighborhood stands in for the attendance
+    module this repo does not have (ADMIN_DECISIONS.md Q1)."""
+    from datetime import timedelta
+
+    window_start, window_end = request.start_date, request.end_date
+    neighbors = session.execute(
+        select(LeaveRequest, Employee, LeaveType)
+        .join(Employee, Employee.id == LeaveRequest.employee_id)
+        .join(LeaveType, LeaveType.id == LeaveRequest.leave_type_id)
+        .where(
+            LeaveRequest.employee_id == request.employee_id,
+            LeaveRequest.status == LeaveStatus.APPROVED,
+            LeaveRequest.id != request.id,
+            LeaveRequest.leave_type_id == LeaveType.id,
+            LeaveType.name.in_(["Work From Home", "Business Travel"]),
+            LeaveRequest.start_date <= window_end + timedelta(days=7),
+            LeaveRequest.end_date >= window_start - timedelta(days=7),
+        )
+        .order_by(LeaveRequest.start_date)
+    ).all()
+    evidence_rows = [
+        {
+            "request_no": row_request.request_no,
+            "leave_type": row_leave_type.name,
+            "start_date": row_request.start_date,
+            "end_date": row_request.end_date,
+            "status": row_request.status.value,
+        }
+        for row_request, _row_employee, row_leave_type in neighbors
+    ]
+    holidays = session.scalars(
+        select(Holiday)
+        .where(Holiday.holiday_date.between(window_start, window_end))
+        .order_by(Holiday.holiday_date)
+    ).all()
+    return {
+        "window": {"from": window_start, "to": window_end},
+        "nearby_approved": evidence_rows,
+        "holidays": [
+            {"holiday_date": holiday.holiday_date, "name": holiday.name, "kind": holiday.kind}
+            for holiday in holidays
+        ],
+    }
+
+
+# --------------------------------------------------------------------------
+# Year-end carry-forward (Phase 7). Admin-triggered, strictly the previous
+# year, idempotent for unchanged source balances (ADMIN_DECISIONS.md Q8).
+# --------------------------------------------------------------------------
+
+
+@router.post("/admin/leave-requests/carry-forward")
+def admin_carry_forward(
+    payload: CarryForwardInput,
+    request: Request,
+    admin: Employee = Depends(require_admin),
+    session: Session = Depends(get_session),
+) -> dict:
+    target_year = payload.year + 1
+    if payload.year != date.today().year - 1:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Carry-forward may only run for the previous year",
+        )
+
+    lock_key = f"carry-forward:{target_year}"
+    session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+        {"lock_key": lock_key},
+    )
+
+    balances = session.scalars(select(LeaveBalance).where(LeaveBalance.year == payload.year)).all()
+    results = {}
+    for balance in balances:
+        employee = session.get(Employee, balance.employee_id)
+        if employee is None:
+            continue
+        remaining = balance.opening_annual + balance.annual_credited - balance.annual_utilized
+        carried = carry_forward_amount(remaining)
+        next_row = session.scalars(
+            select(LeaveBalance).where(
+                LeaveBalance.employee_id == balance.employee_id,
+                LeaveBalance.year == target_year,
+            )
+        ).first()
+        if next_row is None:
+            session.add(
+                LeaveBalance(
+                    employee_id=balance.employee_id,
+                    year=target_year,
+                    opening_annual=carried,
+                    annual_credited=prorated_annual(employee.doj, target_year),
+                    contingency_credited=CONTINGENCY_DAYS_PER_YEAR,
+                    annual_cap=ANNUAL_DAYS_PER_YEAR,
+                    contingency_cap=CONTINGENCY_DAYS_PER_YEAR,
+                )
+            )
+        else:
+            next_row.opening_annual = max(carried, Decimal("0"))
+        results[employee.full_name] = {
+            "remaining": float(remaining),
+            "carried": float(carried),
+            "year": target_year,
+        }
+
+    _audit(
+        request, admin,
+        session, "carry_forward", "leave_balance", str(target_year),
+        {"source_year": payload.year, "employees": results},
+    )
+    session.commit()
+    return {"ok": True, "source_year": payload.year, "target_year": target_year, "employees": len(results)}
+
+
+# --------------------------------------------------------------------------
+# Decision notifications (Phase 6): rows written inside the decision
+# transaction; read endpoint below (ADMIN_DECISIONS.md Q7).
+# --------------------------------------------------------------------------
+
+
+def _notify_decision(session: Session, request: LeaveRequest, request_employee: Employee, approver: Employee, decision: LeaveStatus) -> None:
+    title = f"Leave request {request.request_no} {decision.value}"
+    session.add(
+        Notification(
+            recipient_employee_id=request_employee.id,
+            kind="request_decided",
+            title=title,
+            body=f"Your {request.start_date.isoformat()} leave request was {decision.value} by {approver.full_name}.",
+            target_type="leave_request",
+            target_id=request.request_no,
+        )
+    )
+    if request_employee.manager_id is not None and request_employee.manager_id != approver.id:
+        session.add(
+            Notification(
+                recipient_employee_id=request_employee.manager_id,
+                kind="team_request_decided",
+                title=f"{request_employee.full_name}'s request {request.request_no} {decision.value}",
+                body=f"Decided by {approver.full_name} covering {request.start_date.isoformat()} to {request.end_date.isoformat()}.",
+                target_type="leave_request",
+                target_id=request.request_no,
+            )
+        )
+
+
+@router.get("/notifications")
+def list_my_notifications(
+    employee: Employee = Depends(current_employee), session: Session = Depends(get_session)
+) -> list[dict]:
+    rows = session.scalars(
+        select(Notification)
+        .where(Notification.recipient_employee_id == employee.id)
+        .order_by(Notification.created_at.desc(), Notification.id.desc())
+    ).all()
+    return [
+        {
+            "id": notification.id,
+            "kind": notification.kind,
+            "title": notification.title,
+            "body": notification.body,
+            "target_type": notification.target_type,
+            "target_id": notification.target_id,
+            "read_at": notification.read_at,
+            "created_at": notification.created_at,
+        }
+        for notification in rows
+    ]

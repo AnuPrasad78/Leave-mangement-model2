@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_session, settings
-from app.models import User
+from app.models import Employee, SystemRole, User
 
 password_hash = PasswordHash.recommended()
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -50,3 +50,14 @@ def get_current_user(
     if user is None:
         raise unauthorized
     return user
+
+
+def require_admin(
+    user: User = Depends(get_current_user), session: Session = Depends(get_session)
+) -> Employee:
+    """FastAPI dependency for admin-only endpoints: resolves the signed-in user
+    to their Employee row and requires system_role == admin."""
+    employee = session.scalar(select(Employee).where(Employee.user_id == user.id))
+    if employee is None or employee.system_role != SystemRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return employee
