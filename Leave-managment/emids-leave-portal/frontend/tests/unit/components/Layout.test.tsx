@@ -72,8 +72,8 @@ describe('components/Layout', () => {
     setup({ profile: adminProfile })
     openDrawer()
     for (const label of [
-      'Admin · Overview', 'Admin · Employees', 'Admin · Policies',
-      'Admin · Audit Logs', 'Admin · Stale Review', 'Admin · Reminders',
+      'Admin · Overview', 'Admin · Employees', 'Admin · Balances',
+      'Admin · Audit Logs', 'Admin · Stale & Nudges',
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }

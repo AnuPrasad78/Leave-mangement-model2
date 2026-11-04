@@ -5,14 +5,15 @@ vi.mock('../../../src/services/admin', () => ({
   fetchAdminEmployees: vi.fn(),
   fetchOrgRequests: vi.fn(),
   fetchPendingRequestsPage: vi.fn(),
+  fetchStaleRequests: vi.fn(),
 }))
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
 import AdminReminders from '../../../src/pages/AdminReminders'
-import { adminSendNudge, fetchAdminEmployees, fetchOrgRequests, fetchPendingRequestsPage } from '../../../src/services/admin'
-import type { EmployeeAdminRow, LeaveRequestSelectRow, Paginated } from '../../../src/types/models'
+import { adminSendNudge, fetchAdminEmployees, fetchOrgRequests, fetchPendingRequestsPage, fetchStaleRequests } from '../../../src/services/admin'
+import type { EmployeeAdminRow, LeaveRequestSelectRow, Paginated, StaleRequestRow } from '../../../src/types/models'
 
 const person = (overrides: Partial<EmployeeAdminRow> = {}): EmployeeAdminRow => ({
   id: 'e1',
@@ -97,6 +98,31 @@ describe('pages/AdminReminders', () => {
         request({ employee_id: 'e9', request_no: 'LV-00008', status: 'Pending', requested_on: '2026-10-28' }),
       ])
     )
+    vi.mocked(fetchStaleRequests).mockResolvedValue({
+      page: {
+        rows: [
+          {
+            request_no: 'LV-00003',
+            employee_id: 'e9',
+            start_date: '2026-10-20',
+            end_date: '2026-10-21',
+            days: 2,
+            mode: 'Full Day',
+            reason: 'family',
+            status: 'Pending',
+            requested_on: '2026-10-01',
+            leave_types: { name: 'Annual' },
+            employees: { full_name: 'Vikram Deshmukh', emp_no: 'EM-20810' },
+            evidence: { window: { from: '2026-10-13', to: '2026-10-27' }, nearby_approved: [], holidays: [] },
+          } as StaleRequestRow,
+        ],
+        page: 1,
+        page_size: 10,
+        total: 1,
+        page_count: 1,
+      },
+      error: null,
+    })
   })
 
   afterEach(() => vi.restoreAllMocks())
@@ -149,5 +175,13 @@ describe('pages/AdminReminders', () => {
   it('pre-fills the composer copy from the queue once loaded', async () => {
     renderPage()
     await waitFor(() => expect(screen.getByLabelText('Subject')).toHaveValue('2 pending leave decisions waiting'))
+  })
+
+  it('lists stale requests read-only, with no approve or reject actions', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText('Past-dated pending requests')).toBeInTheDocument())
+    expect(fetchStaleRequests).toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
   })
 })

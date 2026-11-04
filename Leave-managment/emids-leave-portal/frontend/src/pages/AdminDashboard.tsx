@@ -126,8 +126,8 @@ export default function AdminDashboard() {
       <div className="card admin-actions">
         <div>
           <h3>Pending reviews</h3>
-          <p>Past-dated pending requests are reviewed against nearby approved work.</p>
-          <Link className="btn btn--ghost" to="/admin/requests-stale">
+          <p>Past-dated pending requests are listed with nearby approved work for context.</p>
+          <Link className="btn btn--ghost" to="/admin/reminders">
             Open stale review
           </Link>
         </div>

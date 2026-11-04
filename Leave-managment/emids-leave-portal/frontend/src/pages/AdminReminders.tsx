@@ -8,9 +8,10 @@ import {
   fetchAdminEmployees,
   fetchOrgRequests,
   fetchPendingRequestsPage,
+  fetchStaleRequests,
 } from '../services/admin'
-import { fmtDate } from '../utils/dates'
-import type { EmployeeAdminRow, LeaveRequestSelectRow } from '../types/models'
+import { fmtDate, dayName, todayISO } from '../utils/dates'
+import type { EmployeeAdminRow, LeaveRequestSelectRow, StaleRequestRow } from '../types/models'
 
 interface ManagerQueueRow {
   manager: EmployeeAdminRow
@@ -33,6 +34,16 @@ export default function AdminReminders() {
 
   const boardFetcher = useCallback((page: number) => fetchPendingRequestsPage(page), [])
   const board = usePagedData<LeaveRequestSelectRow>({ fetcher: boardFetcher })
+
+  const staleFetcher = useCallback(
+    async (page: number) => {
+      const result = await fetchStaleRequests(todayISO(), page)
+      if (result.error) setToast(result.error.userMessage, TOAST_KIND.Error)
+      return result
+    },
+    [setToast]
+  )
+  const stale = usePagedData<StaleRequestRow>({ fetcher: staleFetcher })
 
   useEffect(() => {
     let mounted = true
@@ -108,11 +119,6 @@ export default function AdminReminders() {
     )
   }
 
-  useEffect(() => {
-    if (queue.length > 0 && !subject) refillCopy()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queue])
-
   const send = async () => {
     const picked = queue.filter((entry) => picks.has(entry.manager.id))
     if (picked.length === 0) {
@@ -143,8 +149,12 @@ export default function AdminReminders() {
 
   return (
     <div className="page">
-      <PageHead eyebrow="Administration · Manager reminders" title="Nudge the queueholders." accent>
-        <p>See who is sitting on pending time-off decisions and send an in-app nudge without leaving the desk.</p>
+      <PageHead eyebrow="Administration" title="Stale review & nudges." accent>
+        <p>
+          Pending time-off gathered in one place: past-dated requests filed with each
+          colleague&apos;s nearby approved work, the manager queues holding the rest, and
+          an in-app nudge for whoever is sitting on decisions.
+        </p>
       </PageHead>
 
       <PanelTable
@@ -218,6 +228,47 @@ export default function AdminReminders() {
           </p>
         )}
       </div>
+
+      <PanelTable
+        title="Past-dated pending requests"
+        count={`${stale.total} stale`}
+        columns={[
+          { label: 'Employee', cell: (row) => <b>{row.employees?.full_name ?? '—'}</b> },
+          { label: 'Type', cell: (row) => row.leave_types?.name ?? '—' },
+          {
+            label: 'Dates',
+            cell: (row) => `${fmtDate(row.start_date)} – ${fmtDate(row.end_date)} (${dayName(row.start_date)})`,
+          },
+          { label: 'Days', cell: (row) => `${row.days}` },
+          {
+            label: 'Context',
+            cell: (row) => (
+              <details className="admin-evidence">
+                <summary>Work context</summary>
+                <ul>
+                  {row.evidence.nearby_approved.map((item) => (
+                    <li key={item.request_no}>
+                      {item.leave_type} {fmtDate(item.start_date)}–{fmtDate(item.end_date)} ({item.status}, {item.request_no})
+                    </li>
+                  ))}
+                  {row.evidence.nearby_approved.length === 0 && <li>No nearby approved work.</li>}
+                  {row.evidence.holidays.map((item) => (
+                    <li key={item.name}>{fmtDate(item.holiday_date)} · holiday: {item.name} ({item.kind})</li>
+                  ))}
+                </ul>
+              </details>
+            ),
+          },
+        ]}
+        rows={stale.loading && !stale.rows.length ? [] : stale.rows}
+        rowKey={(row) => row.request_no}
+        empty={
+          stale.loading
+            ? 'Loading stale requests…'
+            : 'Nothing stale — every pending request is still future-dated.'
+        }
+      />
+      <Pager page={stale.page} pageCount={stale.pageCount} onChange={stale.setPage} />
 
       <PanelTable
         title="Every pending request in the system"

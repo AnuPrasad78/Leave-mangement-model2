@@ -1,33 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Button, Field, PageHead, Pager } from '../components/ui'
 import { useAuth } from '../store/AuthContext'
 import { usePagedData } from '../hooks/usePagedData'
 import { TOAST_KIND } from '../constants'
-import { fetchAdminBalances, fetchLeavePolicies, adminUpsertBalance } from '../services/admin'
-import type { AdminBalanceRow, BalanceUpsertInput, LeavePolicyConfig } from '../types/models'
+import { fetchAdminBalances, adminUpsertBalance } from '../services/admin'
+import type { AdminBalanceRow, BalanceUpsertInput } from '../types/models'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
 export default function AdminLeavePolicies() {
   const { setToast } = useAuth()
-  const [config, setConfig] = useState<LeavePolicyConfig | null>(null)
   const [year, setYear] = useState(CURRENT_YEAR)
   const [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState<AdminBalanceRow | null>(null)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [form, setForm] = useState({ annual_credited: '', contingency_credited: '', opening_annual: '', annual_cap: '', contingency_cap: '' })
-
-  useEffect(() => {
-    let mounted = true
-    fetchLeavePolicies().then(({ config: fresh, error }) => {
-      if (!mounted) return
-      if (error) setToast(error.userMessage, TOAST_KIND.Error)
-      setConfig(fresh)
-    })
-    return () => {
-      mounted = false
-    }
-  }, [setToast])
 
   const fetcher = useCallback((page: number) => fetchAdminBalances(year, page), [year])
   const { rows, total, page, pageCount, setPage, loading } = usePagedData<AdminBalanceRow>({
@@ -73,23 +60,9 @@ export default function AdminLeavePolicies() {
 
   return (
     <div className="page">
-      <PageHead eyebrow="Administration" title="Leave policies." accent>
-        <p>The credit policy the portal enforces, and the org-wide balance sheet.</p>
+      <PageHead eyebrow="Administration" title="Balances." accent>
+        <p>The org-wide balance sheet. The credit policy lives on the admin overview.</p>
       </PageHead>
-
-      <div className="card admin-policy">
-        <h3>Credit policy</h3>
-        {config ? (
-          <dl className="admin-policy-list">
-            <div><dt>Annual days / year</dt><dd>{config.annual_days_per_year} (prorated by DOJ: {config.proration_method})</dd></div>
-            <div><dt>Contingency days / year</dt><dd>{config.contingency_days_per_year}</dd></div>
-            <div><dt>Carry-forward ceiling</dt><dd>{config.carry_forward_max}</dd></div>
-            <div><dt>Optional holiday picks</dt><dd>{config.optional_holidays_max} / person / year</dd></div>
-          </dl>
-        ) : (
-          <p>Loading policy…</p>
-        )}
-      </div>
 
       <div className="card admin-balances">
         <div className="hl-panel-head">

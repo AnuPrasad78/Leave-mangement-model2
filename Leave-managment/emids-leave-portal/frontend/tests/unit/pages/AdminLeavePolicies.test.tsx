@@ -2,14 +2,14 @@ import { vi } from 'vitest'
 
 vi.mock('../../../src/services/admin', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/services/admin')>()
-  return { ...actual, fetchLeavePolicies: vi.fn(), fetchAdminBalances: vi.fn(), adminUpsertBalance: vi.fn() }
+  return { ...actual, fetchAdminBalances: vi.fn(), adminUpsertBalance: vi.fn() }
 })
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
 import AdminLeavePolicies from '../../../src/pages/AdminLeavePolicies'
-import { adminUpsertBalance, fetchAdminBalances, fetchLeavePolicies } from '../../../src/services/admin'
+import { adminUpsertBalance, fetchAdminBalances } from '../../../src/services/admin'
 import type { AdminBalanceRow } from '../../../src/types/models'
 
 const balance = (overrides: Partial<AdminBalanceRow> = {}): AdminBalanceRow => ({
@@ -29,17 +29,6 @@ const balance = (overrides: Partial<AdminBalanceRow> = {}): AdminBalanceRow => (
 describe('pages/AdminLeavePolicies', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(fetchLeavePolicies).mockResolvedValue({
-      config: {
-        annual_days_per_year: 22,
-        contingency_days_per_year: 10,
-        carry_forward_max: 6,
-        optional_holidays_max: 3,
-        prorated_by: 'doj',
-        proration_method: 'months worked / 12',
-      },
-      error: null,
-    })
     vi.mocked(fetchAdminBalances).mockResolvedValue({
       page: { rows: [balance()], page: 1, page_size: 10, total: 1, page_count: 1, year: new Date().getFullYear() },
       error: null,
@@ -57,11 +46,10 @@ describe('pages/AdminLeavePolicies', () => {
     return setToast
   }
 
-  it('renders the live credit policy from the backend', async () => {
+  it('shows the balance sheet only — the credit policy lives on the overview', async () => {
     setup()
-    await waitFor(() => expect(screen.getByText(/22 \(prorated by DOJ/)).toBeInTheDocument())
-    expect(screen.getByText(/Optional holiday picks/)).toBeInTheDocument()
-    expect(fetchLeavePolicies).toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByText('Vikram Deshmukh')).toBeInTheDocument())
+    expect(screen.queryByText('Credit policy')).not.toBeInTheDocument()
   })
 
   it('lists org balances for the selected year', async () => {

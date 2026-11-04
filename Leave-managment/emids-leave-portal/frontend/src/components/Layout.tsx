@@ -14,7 +14,7 @@ import NotificationsPanel from './layout/NotificationsPanel'
 import {
   IconMenu, IconSearch, IconBell, IconX, IconLogout, IconChevronDown,
   IconDashboard, IconCalendarPlus, IconFileText, IconClipboardCheck,
-  IconSun, IconDoor, IconSparkles, IconUser, IconSitemap,
+  IconSun, IconDoor, IconSparkles, IconUser,
 } from './Icons'
 import type { IconComponent } from './Icons'
 import type { TeamRequestRow } from '../types/models'
@@ -38,11 +38,9 @@ export const NAV: NavItem[] = [
   { to: '/separation-request', num: '6', label: 'Separation Request', icon: IconDoor },
   { to: '/admin', num: '7', label: 'Admin · Overview', icon: IconDashboard, admin: true },
   { to: '/admin/employees', num: '8', label: 'Admin · Employees', icon: IconUser, admin: true },
-  { to: '/admin/leave-policies', num: '9', label: 'Admin · Policies', icon: IconSun, admin: true },
+  { to: '/admin/leave-policies', num: '9', label: 'Admin · Balances', icon: IconSun, admin: true },
   { to: '/admin/audit-logs', num: '10', label: 'Admin · Audit Logs', icon: IconFileText, admin: true },
-  { to: '/admin/requests-stale', num: '11', label: 'Admin · Stale Review', icon: IconClipboardCheck, admin: true },
-  { to: '/admin/reminders', num: '12', label: 'Admin · Reminders', icon: IconBell, admin: true },
-  { to: '/admin/roster', num: '13', label: 'Admin · Roster', icon: IconSitemap, admin: true },
+  { to: '/admin/reminders', num: '11', label: 'Admin · Stale & Nudges', icon: IconBell, admin: true },
 ]
 
 export interface LayoutProps {
