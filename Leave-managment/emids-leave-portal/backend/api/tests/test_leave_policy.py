@@ -12,6 +12,7 @@ from app.leave_policy import (
     CONTINGENCY_DAYS_PER_YEAR,
     OPTIONAL_HOLIDAYS_MAX,
     PRORATION_METHOD,
+    deduction_pool,
     prorated_annual,
 )
 
@@ -48,6 +49,23 @@ def test_prorated_annual_table(doj, year, expected):
 def test_prorated_annual_stays_within_cap():
     assert prorated_annual(date(2020, 1, 1), 2027) <= ANNUAL_DAYS_PER_YEAR
     assert prorated_annual(None, 2027) <= ANNUAL_DAYS_PER_YEAR
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("leave_type", "expected"),
+    [
+        ("Contingency Bucket", "contingency"),
+        ("Work From Home", None),
+        ("Business Travel", None),
+        ("Leave Without Pay", None),
+        ("Loss Of Pay", None),
+        ("Paid Time Off", "annual"),
+        ("Compensatory Off", "annual"),
+    ],
+)
+def test_deduction_pool_table(leave_type, expected):
+    assert deduction_pool(leave_type) == expected
 
 
 @pytest.mark.unit

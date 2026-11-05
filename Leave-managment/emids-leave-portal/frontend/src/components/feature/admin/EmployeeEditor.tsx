@@ -1,10 +1,18 @@
 import { useState } from 'react'
 import { Button, Field } from '../../ui'
+import { todayISO } from '../../../utils/dates'
 import type { EmployeeAdminRow, EmployeeCreateInput, EmployeeUpdateInput } from '../../../types/models'
+
+export interface ManagerOption {
+  id: string
+  full_name: string | null
+  emp_no: string | null
+}
 
 export interface EmployeeEditorProps {
   mode: 'create' | 'edit'
   row: EmployeeAdminRow | null
+  managers: ManagerOption[]
   busy?: boolean
   onSubmit: (payload: EmployeeCreateInput | EmployeeUpdateInput, id?: string) => void
   onDismiss: () => void
@@ -15,16 +23,17 @@ const fieldNames = [
   { key: 'email', label: 'Email', type: 'email', required: true },
   { key: 'job_title', label: 'Job Title', type: 'text', required: false },
   { key: 'doj', label: 'Date of Joining', type: 'date', required: false },
-  { key: 'manager_id', label: 'Manager ID (optional)', type: 'text', required: false },
   { key: 'location', label: 'Location (optional)', type: 'text', required: false },
 ]
 
-export function EmployeeEditor({ mode, row, busy, onSubmit, onDismiss }: EmployeeEditorProps) {
+export function EmployeeEditor({ mode, row, managers, busy, onSubmit, onDismiss }: EmployeeEditorProps) {
   const [values, setValues] = useState<Record<string, string>>(() => ({
     full_name: row?.full_name ?? '',
     email: row?.email ?? '',
     job_title: row?.job_title ?? '',
-    doj: row?.doj ?? '',
+    // New hires join today unless the admin says otherwise — the editor
+    // prefills Date of Joining instead of leaving it blank.
+    doj: row?.doj ?? (mode === 'create' ? todayISO() : ''),
     manager_id: row?.manager_id ?? '',
     location: row?.location ?? '',
   }))
@@ -83,6 +92,22 @@ export function EmployeeEditor({ mode, row, busy, onSubmit, onDismiss }: Employe
             />
           </Field>
         ))}
+        <Field label="Manager (optional)" htmlFor="emp-manager_id">
+          <select
+            id="emp-manager_id"
+            className="input"
+            value={values.manager_id}
+            onChange={(event) => setValues((prev) => ({ ...prev, manager_id: event.target.value }))}
+          >
+            <option value="">(none)</option>
+            {managers.map((manager) => (
+              <option key={manager.id} value={manager.id}>
+                {manager.full_name ?? manager.id}
+                {manager.emp_no ? ` (${manager.emp_no})` : ''}
+              </option>
+            ))}
+          </select>
+        </Field>
         {mode === 'create' && (
           <>
             <Field label="Role" htmlFor="emp-role">

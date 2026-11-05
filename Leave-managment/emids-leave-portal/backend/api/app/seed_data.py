@@ -159,35 +159,10 @@ DEMO_REQUESTS = [
     },
 ]
 
-BALANCES = [
-    {
-        "employee_email": MANAGER_EMAIL,
-        "year": 2026,
-        "opening_annual": Decimal("4.25"),
-        "annual_credited": Decimal("18.00"),
-        "annual_utilized": Decimal("11.25"),
-        "contingency_credited": Decimal("10.00"),
-        "contingency_utilized": Decimal("6.00"),
-    },
-    {
-        "employee_email": MANAGER_EMAIL,
-        "year": 2025,
-        "opening_annual": Decimal("0"),
-        "annual_credited": Decimal("18.00"),
-        "annual_utilized": Decimal("0"),
-        "contingency_credited": Decimal("10.00"),
-        "contingency_utilized": Decimal("0"),
-    },
-    {
-        "employee_email": "sandeep.venkateshkamath@emids.com",
-        "year": 2026,
-        "opening_annual": Decimal("0"),
-        "annual_credited": Decimal("18.00"),
-        "annual_utilized": Decimal("0"),
-        "contingency_credited": Decimal("10.00"),
-        "contingency_utilized": Decimal("0"),
-    },
-]
+# Demo-only data, not policy: the manager's left-over annual carry-forward.
+# All credit amounts (annual/contingency/caps) are computed in seed.py from
+# leave_policy; utilized comes from the seeded DEMO_REQUESTS (see demo_utilized).
+MANAGER_OPENING_ANNUAL = Decimal("4.25")
 
 HOLIDAYS = [
     # India fixed holidays: (location, year, date, name)

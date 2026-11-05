@@ -17,6 +17,7 @@ from app.leave_policy import (
     CONTINGENCY_DAYS_PER_YEAR,
     OPTIONAL_HOLIDAYS_MAX,
     carry_forward_amount,
+    deduction_pool,
     prorated_annual,
 )
 from app.models import (
@@ -304,11 +305,11 @@ def update_leave_request(
 
 def update_balance_for_decision(session: Session, request: LeaveRequest, decision: LeaveStatus) -> None:
     leave_type = session.get(LeaveType, request.leave_type_id)
-    if leave_type is None or leave_type.name in {
-        "Work From Home", "Business Travel", "Leave Without Pay", "Loss Of Pay"
-    }:
+    if leave_type is None:
         return
-    pool = "contingency" if leave_type.name == "Contingency Bucket" else "annual"
+    pool = deduction_pool(leave_type.name)
+    if pool is None:
+        return
     year = request.start_date.year
     request_employee = session.get(Employee, request.employee_id)
     if request_employee is None:
@@ -637,6 +638,17 @@ def admin_create_employee(
             system_role=SystemRole(payload.system_role),
         )
         session.add(employee)
+        session.flush()
+        balance_year = date.today().year
+        balance = LeaveBalance(
+            employee_id=employee.id,
+            year=balance_year,
+            annual_credited=prorated_annual(payload.doj, balance_year),
+            contingency_credited=CONTINGENCY_DAYS_PER_YEAR,
+            annual_cap=ANNUAL_DAYS_PER_YEAR,
+            contingency_cap=CONTINGENCY_DAYS_PER_YEAR,
+        )
+        session.add(balance)
         session.commit()
     except Exception as error:
         session.rollback()
@@ -650,6 +662,13 @@ def admin_create_employee(
         "email": employee.email,
         "system_role": employee.system_role.value,
         "manager_id": employee.manager_id,
+        "leave_balance": {
+            "year": balance_year,
+            "annual_credited": _jsonable(balance.annual_credited),
+            "contingency_credited": _jsonable(balance.contingency_credited),
+            "annual_cap": _jsonable(balance.annual_cap),
+            "contingency_cap": _jsonable(balance.contingency_cap),
+        },
     })
     session.commit()
     return EmployeeCreateOutput(

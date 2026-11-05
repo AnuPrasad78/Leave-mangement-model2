@@ -39,6 +39,25 @@ def prorated_annual(doj: date | None, year: int) -> Decimal:
     return rounded
 
 
+def deduction_pool(leave_type_name: str) -> str | None:
+    """Which balance pool (if any) a leave type draws from.
+
+    Mirrors the 2026 policy: Contingency Bucket draws contingency; Work From
+    Home, Business Travel and both leave-without-pay names deduct nothing;
+    every other type draws the annual pool. `None` means no deduction.
+    """
+    if leave_type_name == "Contingency Bucket":
+        return "contingency"
+    if leave_type_name in {
+        "Work From Home",
+        "Business Travel",
+        "Leave Without Pay",
+        "Loss Of Pay",
+    }:
+        return None
+    return "annual"
+
+
 def carry_forward_amount(remaining: Decimal | None) -> Decimal:
     """How much of `remaining` annual days rolls into next year's opening."""
     amount = remaining if remaining is not None else Decimal("0")

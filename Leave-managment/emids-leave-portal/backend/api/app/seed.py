@@ -1,28 +1,49 @@
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
+from app.backfill_balances import balance_values_for
 from app.db import SessionLocal, settings
+from app.leave_policy import deduction_pool
 from app.models import (
     Employee,
     Holiday,
     LeaveBalance,
     LeaveRequest,
+    LeaveStatus,
     LeaveType,
     User,
 )
 from app.security import hash_password
 from app.seed_data import (
     ADMIN_EMAIL,
-    BALANCES,
     DEMO_REQUESTS,
     EMPLOYEES,
     HOLIDAYS,
     INDIA_OPTIONAL_HOLIDAYS,
     LEAVE_TYPES,
     MANAGER_EMAIL,
+    MANAGER_OPENING_ANNUAL,
 )
+
+
+def demo_utilized(requests: list[dict]) -> dict[tuple[str, int], dict[str, Decimal]]:
+    """Utilized balances implied by the seeded demo requests: only APPROVED
+    requests for a deduction-drawing leave type (leave_policy.deduction_pool)
+    consume balance, grouped by employee email and request year."""
+    utilized: dict[tuple[str, int], dict[str, Decimal]] = {}
+    for request_data in requests:
+        pool = deduction_pool(request_data["leave_type"])
+        if pool is None or request_data["status"] != LeaveStatus.APPROVED:
+            continue
+        entry = utilized.setdefault(
+            (request_data["employee_email"], request_data["start_date"].year),
+            {"annual": Decimal("0"), "contingency": Decimal("0")},
+        )
+        entry[pool] += request_data["days"]
+    return utilized
 
 
 ORG_DEFAULTS = {
@@ -131,21 +152,27 @@ def seed_demo_data() -> None:
                 )
             )
 
-        for balance_data in BALANCES:
+        current_year = date.today().year
+        utilized = demo_utilized(DEMO_REQUESTS)
+        seeded_rows = 0
+        for email, employee in employees_by_email.items():
             values = {
-                "employee_id": employees_by_email[balance_data["employee_email"]].id,
-                "year": balance_data["year"],
-                **{key: value for key, value in balance_data.items() if key not in {"employee_email", "year"}},
+                **balance_values_for(employee, current_year),
+                "opening_annual": MANAGER_OPENING_ANNUAL if email == MANAGER_EMAIL else Decimal("0"),
+                "annual_utilized": utilized.get(email, {}).get("annual", Decimal("0")),
+                "contingency_utilized": utilized.get(email, {}).get("contingency", Decimal("0")),
             }
-            statement = insert(LeaveBalance).values(**values)
             session.execute(
-                statement.on_conflict_do_update(
+                insert(LeaveBalance)
+                .values(**values)
+                .on_conflict_do_update(
                     constraint="leave_balances_employee_year_key",
                     set_={key: value for key, value in values.items() if key not in {"employee_id", "year"}},
                 )
             )
+            seeded_rows += 1
 
-    print(f"Seeded {len(EMPLOYEES)} login profiles, {len(LEAVE_TYPES)} leave types, 3 requests, 3 balances, and 109 India holidays.")
+    print(f"Seeded {len(EMPLOYEES)} login profiles, {len(LEAVE_TYPES)} leave types, {len(DEMO_REQUESTS)} requests, {seeded_rows} balances, and {len(HOLIDAYS) + len(INDIA_OPTIONAL_HOLIDAYS)} India holidays.")
 
 
 def upsert_holiday(session, values: dict) -> None:

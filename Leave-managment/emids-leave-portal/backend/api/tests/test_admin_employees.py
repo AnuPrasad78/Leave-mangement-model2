@@ -1,8 +1,11 @@
 """Phase 3: admin employee CRUD, deactivation semantics, audit entries."""
 
+from datetime import date
+
 import pytest
 from sqlalchemy import select
 
+from app.leave_policy import ANNUAL_DAYS_PER_YEAR, CONTINGENCY_DAYS_PER_YEAR, prorated_annual
 from app.models import LeaveRequest
 
 
@@ -47,6 +50,88 @@ def test_admin_creates_employee_with_provided_password(client, admin_factory, au
     assert client.post(
         "/auth/login", json={"email": "empcp.new@emids.com", "password": "Choosable09!"}
     ).status_code == 200
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("month_day", "expected"),
+    [
+        ("01-01", 22.0),
+        ("07-01", 11.0),
+        ("12-31", 2.0),
+    ],
+)
+def test_create_credits_the_current_years_balance(client, admin_factory, auth_headers, month_day, expected):
+    """Every created employee owns a LeaveBalance for the current year, with
+    credits computed by leave_policy from their DOJ — never hardcoded."""
+    admin_factory("balcre.admin@emids.com", role="admin")
+    this_year = date.today().year
+
+    email = "balcre.new@emids.com"
+    response = client.post(
+        "/admin/employees",
+        json={"full_name": "Balanced Person", "email": email, "doj": f"{this_year}-{month_day}"},
+        headers=auth_headers("balcre.admin@emids.com"),
+    )
+    assert response.status_code == 201, response.text
+    temp_password = response.json()["temporary_password"]
+    headers = {
+        "Authorization": "Bearer "
+        + client.post(
+            "/auth/login",
+            json={"email": email, "password": temp_password},
+        ).json()["access_token"],
+    }
+
+    body = client.get("/balances/me", headers=headers).json()
+    assert body["year"] == this_year
+    assert float(body["annual_credited"]) == expected
+    assert float(body["contingency_credited"]) == 10.0
+    assert float(body["annual_cap"]) == float(ANNUAL_DAYS_PER_YEAR)
+    assert float(body["contingency_cap"]) == float(CONTINGENCY_DAYS_PER_YEAR)
+    assert float(body["annual_utilized"]) == 0.0
+
+
+@pytest.mark.integration
+def test_create_credits_full_year_for_doj_in_a_previous_year(client, admin_factory, auth_headers):
+    admin_factory("balprev.admin@emids.com", role="admin")
+    this_year = date.today().year
+    email = "balprev.new@emids.com"
+    response = client.post(
+        "/admin/employees",
+        json={"full_name": "Old Joiner", "email": email, "doj": f"{this_year - 1}-06-02"},
+        headers=auth_headers("balprev.admin@emids.com"),
+    )
+    assert response.status_code == 201
+    temp_password = response.json()["temporary_password"]
+    headers = {
+        "Authorization": "Bearer "
+        + client.post(
+            "/auth/login",
+            json={"email": email, "password": temp_password},
+        ).json()["access_token"],
+    }
+    assert float(client.get("/balances/me", headers=headers).json()["annual_credited"]) == 22.0
+
+
+@pytest.mark.integration
+def test_employee_created_audit_records_the_balance(client, admin_factory, auth_headers, session):
+    from app.models import AuditLog
+
+    admin_factory("audbal.admin@emids.com", role="admin")
+    response = client.post(
+        "/admin/employees",
+        json={"full_name": "Audit Balanced", "email": "audbal.new@emids.com"},
+        headers=auth_headers("audbal.admin@emids.com"),
+    )
+    assert response.status_code == 201
+
+    with session() as db:
+        log = db.scalar(select(AuditLog).where(AuditLog.action == "employee_created"))
+        balance_detail = log.detail_json["leave_balance"]
+    assert balance_detail["year"] == date.today().year
+    assert balance_detail["annual_credited"] == 22.0  # _jsonable floats, not raw Decimals
+    assert balance_detail["contingency_credited"] == 10.0
 
 
 @pytest.mark.integration

@@ -47,6 +47,7 @@ DEFAULT_PASSWORD = "TestPassword123!"
 # Database acquisition (must run before `app.db` is imported anywhere)
 # --------------------------------------------------------------------------
 def _container_url(container) -> str:
+    container.reload()  # newer Docker engines snapshot Ports before the bind lands
     host_port = container.attrs["NetworkSettings"]["Ports"]["5432/tcp"][0]["HostPort"]
     return f"postgresql+psycopg://{PG_USER}:{PG_PASSWORD}@localhost:{host_port}/{PG_DB}"
 

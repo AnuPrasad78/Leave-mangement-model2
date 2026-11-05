@@ -3,8 +3,9 @@ import { Button, ConfirmModal, Field, PageHead, Pager } from '../components/ui'
 import { useAuth } from '../store/AuthContext'
 import { useAdmin } from '../store/AdminContext'
 import { TOAST_KIND } from '../constants'
+import { fetchAdminEmployees } from '../services/admin'
 import { EmployeeTable } from '../components/feature/admin/EmployeeTable'
-import { EmployeeEditor } from '../components/feature/admin/EmployeeEditor'
+import { EmployeeEditor, type ManagerOption } from '../components/feature/admin/EmployeeEditor'
 import type { EmployeeAdminRow } from '../types/models'
 
 type PendingToggle = { row: EmployeeAdminRow; toActive: boolean } | null
@@ -16,12 +17,27 @@ export default function AdminEmployees() {
   const [busy, setBusy] = useState(false)
   const [editorMode, setEditorMode] = useState<'closed' | 'create' | 'edit'>('closed')
   const [editingRow, setEditingRow] = useState<EmployeeAdminRow | null>(null)
+  const [managers, setManagers] = useState<ManagerOption[]>([])
   const [pendingToggle, setPendingToggle] = useState<PendingToggle>(null)
   const [resetTarget, setResetTarget] = useState<EmployeeAdminRow | null>(null)
   const [resetPayload, setResetPayload] = useState<{ token: string; endpoint: string } | null>(null)
 
   useEffect(() => {
     if (editorMode === 'closed') setEditingRow(null)
+  }, [editorMode])
+
+  useEffect(() => {
+    if (editorMode === 'closed') return
+    let alive = true
+    void fetchAdminEmployees({ role: 'manager', active: true, pageSize: 100, sort: 'full_name' }).then(
+      (result) => {
+        if (!alive || result.error) return
+        setManagers(result.page.rows.map(({ id, full_name, emp_no }) => ({ id, full_name, emp_no })))
+      }
+    )
+    return () => {
+      alive = false
+    }
   }, [editorMode])
 
   const submitEditor = async (payload: unknown, id?: string) => {
@@ -111,6 +127,7 @@ export default function AdminEmployees() {
             <EmployeeEditor
               mode={editorMode}
               row={editingRow}
+              managers={managers}
               busy={busy}
               onSubmit={submitEditor}
               onDismiss={() => setEditorMode('closed')}
