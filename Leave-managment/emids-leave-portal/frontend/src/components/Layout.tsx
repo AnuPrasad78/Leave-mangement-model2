@@ -30,13 +30,13 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { to: '/dashboard', num: '1', label: 'Dashboard', icon: IconDashboard },
-  { to: '/apply-leave', num: '2', label: 'Apply Leave', icon: IconCalendarPlus },
-  { to: '/leave-details', num: '3', label: 'My Requests', icon: IconFileText },
-  { to: '/leave-requests', num: '4', label: 'Leave Requests', icon: IconClipboardCheck },
-  { to: '/holidays', num: '5', label: 'Holiday Calendar', icon: IconSun },
-  { to: '/separation-request', num: '6', label: 'Separation Request', icon: IconDoor },
-  { to: '/admin', num: '7', label: 'Admin · Overview', icon: IconDashboard, admin: true },
+  { to: '/admin', num: '1', label: 'Admin · Overview', icon: IconDashboard, admin: true },
+  { to: '/dashboard', num: '2', label: 'Dashboard', icon: IconDashboard },
+  { to: '/apply-leave', num: '3', label: 'Apply Leave', icon: IconCalendarPlus },
+  { to: '/leave-details', num: '4', label: 'My Requests', icon: IconFileText },
+  { to: '/leave-requests', num: '5', label: 'Leave Requests', icon: IconClipboardCheck },
+  { to: '/holidays', num: '6', label: 'Holiday Calendar', icon: IconSun },
+  { to: '/separation-request', num: '7', label: 'Separation Request', icon: IconDoor },
   { to: '/admin/employees', num: '8', label: 'Admin · Employees', icon: IconUser, admin: true },
   { to: '/admin/leave-policies', num: '9', label: 'Admin · Balances', icon: IconSun, admin: true },
   { to: '/admin/audit-logs', num: '10', label: 'Admin · Audit Logs', icon: IconFileText, admin: true },

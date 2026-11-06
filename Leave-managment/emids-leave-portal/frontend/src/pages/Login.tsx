@@ -1,7 +1,9 @@
+
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/AuthContext'
+import { isAdmin } from '../utils/roles'
 import { Button, Field } from '../components/ui'
 import logoLight from '../assets/emids-logo-light.svg'
 
@@ -24,26 +26,37 @@ const FEATURES = [
 ]
 
 export default function Login() {
-  const { signIn, signedIn } = useAuth()
+  const { signIn, signedIn, profile } = useAuth()
   const navigate = useNavigate()
+
   const [busy, setBusy] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  // Redirect users according to their role after authentication.
   useEffect(() => {
-    if (signedIn) navigate('/dashboard', { replace: true })
-  }, [signedIn, navigate])
+    if (signedIn && profile) {
+      navigate(isAdmin(profile) ? '/admin' : '/dashboard', {
+        replace: true,
+      })
+    }
+  }, [signedIn, profile, navigate])
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
     setBusy(true)
+
     try {
       const message = await signIn(email.trim(), password)
       if (message) setError(message)
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Unable to sign in. Please try again.')
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to sign in. Please try again.'
+      )
     } finally {
       setBusy(false)
     }
@@ -61,9 +74,13 @@ export default function Login() {
           <h1 className="login__headline">
             Your time off, managed <em>with precision.</em>
           </h1>
+
           <div className="login__features">
             {FEATURES.map((f, i) => (
-              <div className={`login__feature ${i === 0 ? 'login__feature--accent' : ''}`} key={f.num}>
+              <div
+                className={`login__feature ${i === 0 ? 'login__feature--accent' : ''}`}
+                key={f.num}
+              >
                 <div>
                   <span className="mono">{i + 1}/03 · {f.num}</span>
                   <b>{f.title}</b>
@@ -72,6 +89,7 @@ export default function Login() {
               </div>
             ))}
           </div>
+
           <div className="login__plate-foot">
             <span>EMIDS · ABSENCE SUITE</span>
           </div>
@@ -82,43 +100,57 @@ export default function Login() {
         <div className="login__form">
           <span className="eyebrow">Employee Sign-in</span>
           <h1>Welcome back.</h1>
+
           <p className="login__lede">
             Sign in with your Emids credentials. Accounts are provisioned by
             Emids IT — this portal never stores your password.
           </p>
 
           <form className="login__fields" onSubmit={handleSubmit}>
-            <Field label='Corporate Email' required htmlFor='login-email'>
+            <Field label="Corporate Email" required htmlFor="login-email">
               <input
-                id='login-email'
-                className='input'
-                type='email'
+                id="login-email"
+                className="input"
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder='name@emids.com'
-                autoComplete='email'
+                placeholder="name@emids.com"
+                autoComplete="email"
                 required
               />
             </Field>
-            <Field label='Password' required error={error} htmlFor='login-password'>
+
+            <Field
+              label="Password"
+              required
+              error={error}
+              htmlFor="login-password"
+            >
               <input
-                id='login-password'
-                className='input'
-                type='password'
+                id="login-password"
+                className="input"
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete='current-password'
+                autoComplete="current-password"
                 required
               />
             </Field>
-            <Button className='btn--sso' type='submit' busy={busy} busyLabel='Verifying credentials'>
+
+            <Button
+              className="btn--sso"
+              type="submit"
+              busy={busy}
+              busyLabel="Verifying credentials"
+            >
               Sign in
             </Button>
           </form>
 
           <p className="login__note">
             Access is provisioned by Emids · People Success
-            <br />Trouble signing in? raise it at helpdesk.emids.com
+            <br />
+            Trouble signing in? raise it at helpdesk.emids.com
           </p>
         </div>
       </section>
