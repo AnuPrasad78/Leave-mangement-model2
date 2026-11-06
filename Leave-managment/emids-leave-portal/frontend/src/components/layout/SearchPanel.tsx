@@ -31,6 +31,14 @@ export default function SearchPanel({ mine, team, searchEmployees, onDismiss }: 
   useDismiss(ref, { onClose: onDismiss, ignoreSelector: '[data-search-toggle]' })
   const navigate = useNavigate()
 
+  // Programmatic focus on mount — jsx-a11y forbids the autoFocus attribute,
+  // but pointing the keyboard at the query box is still what a search dropdown
+  // opened from the header expects.
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
   const [query, setQuery] = useState('')
   const [employees, setEmployees] = useState<EmployeeAdminRow[]>([])
   const trimmed = query.trim().toLowerCase()
@@ -53,10 +61,9 @@ export default function SearchPanel({ mine, team, searchEmployees, onDismiss }: 
     }
   }, [active, searchEmployees, trimmed])
 
-  const hit = (text: string): boolean => text.toLowerCase().includes(trimmed)
-
   const groups = useMemo<GroupResult[]>(() => {
     if (!active) return []
+    const hit = (text: string): boolean => text.toLowerCase().includes(trimmed)
     const groups: GroupResult[] = []
 
     const requestHit = (row: LeaveRequestRow): boolean =>
@@ -101,7 +108,7 @@ export default function SearchPanel({ mine, team, searchEmployees, onDismiss }: 
     }
 
     return groups
-  }, [active, employees, mine, searchEmployees, team])
+  }, [active, employees, mine, searchEmployees, team, trimmed])
 
   const goTo = (to: string) => {
     navigate(to)
@@ -111,9 +118,9 @@ export default function SearchPanel({ mine, team, searchEmployees, onDismiss }: 
   return (
     <div ref={ref} className="search-pop" role="dialog" aria-label="Search">
       <input
+        ref={inputRef}
         className="search-pop__input"
         type="text"
-        autoFocus
         placeholder="Search requests, people, dates…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
