@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "emids-leave-portal",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "zzz/emids-leave-portal"],
+      "port": 5173
+    }
+  ]
+}

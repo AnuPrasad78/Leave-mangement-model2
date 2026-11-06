@@ -1,0 +1,72 @@
+name: tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  frontend:
+    name: frontend (vitest + typecheck + lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Leave-managment/emids-leave-portal/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Leave-managment/emids-leave-portal/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: Leave-managment/emids-leave-portal/frontend/coverage
+          retention-days: 7
+    # E2E (playwright) is intentionally NOT part of CI: it boots a dev server on :5180
+    # and mutates a real hosted backend (seeded users, real leave rows). Run it locally.
+
+  backend:
+    name: backend (pytest, real postgres)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Leave-managment/emids-leave-portal/backend/api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: leave_test
+          POSTGRES_PASSWORD: leave_test
+          POSTGRES_DB: leave_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U leave_test -d leave_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://leave_test:leave_test@127.0.0.1:5432/leave_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      # conftest runs Alembic migrations against the test database
+      - run: python -m pytest --cov=app --cov-report=xml --cov-fail-under=75
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: |
+            Leave-managment/emids-leave-portal/backend/api/coverage.xml
+            Leave-managment/emids-leave-portal/backend/api/junit.xml
+          retention-days: 7

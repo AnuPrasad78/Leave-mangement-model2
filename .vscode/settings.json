@@ -1,0 +1,7 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.createEnvironment.trigger": "off",
+    "python.defaultInterpreterPath": "Leave-managment/emids-leave-portal/backend/.venv/Scripts/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "python.createEnvironment.trigger": "off"
+}

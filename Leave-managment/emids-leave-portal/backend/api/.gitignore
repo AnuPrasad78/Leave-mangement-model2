@@ -1,0 +1,8 @@
+# portable postgres binaries + throwaway test cluster (run-backend-tests.ps1)
+tools/
+.test-data/
+
+__pycache__/
+*.pyc
+.venv/
+.env
