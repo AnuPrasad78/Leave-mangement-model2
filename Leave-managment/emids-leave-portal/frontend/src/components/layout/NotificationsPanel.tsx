@@ -30,7 +30,9 @@ export default function NotificationsPanel({ onDismiss }: NotificationsPanelProp
       setRows(fresh)
       // Failed sends stay unread; opening the panel acknowledges whatever
       // loaded fine. Fire-and-forget: the badge refresh happens on close.
-      if (!lookupError) markAllNotificationsRead().catch(() => {})
+      // Promise.resolve guards against the (test-mock) case of the function
+      // not returning a promise.
+      if (!lookupError) void Promise.resolve(markAllNotificationsRead()).catch(() => {})
     })
     return () => {
       mounted = false

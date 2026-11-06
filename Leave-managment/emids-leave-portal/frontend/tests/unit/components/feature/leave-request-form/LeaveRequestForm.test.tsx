@@ -46,8 +46,8 @@ describe('components/feature/LeaveRequestForm', () => {
     setup({ addMine: vi.fn(async () => null) })
     await user.click(screen.getByRole('button', { name: 'Submit Request' }))
     expect(screen.queryByText('Select a leave type.')).not.toBeInTheDocument() // default type chip preselected
-    expect(screen.getByText('Pick a from date.')).toBeInTheDocument()
-    expect(screen.getByText('Pick a to date.')).toBeInTheDocument()
+    // From/To errors render as one combined full-width line under the dates row.
+    expect(screen.getByText('Pick a from date. Pick a to date.')).toBeInTheDocument()
     expect(screen.getByText('Tell the approver why, in a line or two.')).toBeInTheDocument()
   })
 

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -9,6 +9,7 @@ import Layout from '../../../src/components/Layout'
 
 vi.mock('../../../src/services/notifications', () => ({
   fetchMyNotifications: vi.fn().mockResolvedValue({ rows: [], error: null }),
+  markAllNotificationsRead: vi.fn().mockResolvedValue(undefined),
 }))
 
 const staffProfile = { initials: 'VD', full_name: 'Vikram Deshmukh', job_title: 'Consultant', emp_no: 'EM-20810', system_role: 'employee' } as unknown as EmployeeProfileRow
@@ -43,15 +44,16 @@ function openDrawer() {
 describe('components/Layout', () => {
   it('renders the pinned header, page body and the drawer nav with six links', () => {
     setup()
-    expect(screen.getByText('Absence Management')).toBeInTheDocument()
+    expect(document.querySelector('.header__title')?.textContent).toBe('Leave Management')
     expect(screen.getByText('page-body')).toBeInTheDocument()
     const drawer = openDrawer()
     expect(drawer.getAttribute('class')).toContain('drawer')
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Apply Leave')).toBeInTheDocument()
-    expect(screen.getByText('My Requests')).toBeInTheDocument()
-    expect(screen.getByText('Holiday Calendar')).toBeInTheDocument()
-    expect(screen.getByText('Separation Request')).toBeInTheDocument()
+    const nav = within(drawer)
+    expect(nav.getByText('Leave Management')).toBeInTheDocument()
+    expect(nav.getByText('Apply Leave')).toBeInTheDocument()
+    expect(nav.getByText('My Requests')).toBeInTheDocument()
+    expect(nav.getByText('Holiday Calendar')).toBeInTheDocument()
+    expect(nav.getByText('Separation Request')).toBeInTheDocument()
   })
 
   const adminProfile = { ...staffProfile, system_role: 'admin' } as unknown as EmployeeProfileRow
@@ -59,24 +61,30 @@ describe('components/Layout', () => {
   it('hides every admin nav entry from employees and managers', () => {
     setup()
     openDrawer()
-    expect(screen.queryByText('Admin · Overview')).not.toBeInTheDocument()
+    expect(screen.queryByText('Admin · Console')).not.toBeInTheDocument()
     expect(screen.queryByText('Admin · Employees')).not.toBeInTheDocument()
 
     document.body.innerHTML = ''
     setup({ profile: managerProfile })
     openDrawer()
-    expect(screen.queryByText('Admin · Overview')).not.toBeInTheDocument()
+    expect(screen.queryByText('Admin · Console')).not.toBeInTheDocument()
   })
 
-  it('shows the full admin nav entry set for admins', () => {
+  it('shows the trimmed admin nav for admins with Separation Request but not the user tabs', () => {
     setup({ profile: adminProfile })
-    openDrawer()
+    const drawer = openDrawer()
+    const nav = within(drawer)
     for (const label of [
-      'Admin · Overview', 'Admin · Employees', 'Admin · Balances',
-      'Admin · Audit Logs', 'Admin · Stale & Nudges',
+      'Admin · Console', 'Leave Management', 'Admin · Employees', 'Admin · Balances',
+      'Admin · Audit Logs', 'Admin · Stale & Nudges', 'Separation Request',
     ]) {
-      expect(screen.getByText(label)).toBeInTheDocument()
+      expect(nav.getByText(label)).toBeInTheDocument()
     }
+    // The admin variant drops the user-only tabs.
+    expect(nav.queryByText('Apply Leave')).not.toBeInTheDocument()
+    expect(nav.queryByText('My Requests')).not.toBeInTheDocument()
+    expect(nav.queryByText('Leave Requests')).not.toBeInTheDocument()
+    expect(nav.queryByText('Holiday Calendar')).not.toBeInTheDocument()
   })
 
   it('opens the notifications popover from the bell', async () => {

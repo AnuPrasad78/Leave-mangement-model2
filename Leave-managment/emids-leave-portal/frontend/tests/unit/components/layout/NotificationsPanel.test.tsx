@@ -2,11 +2,13 @@ import { vi } from 'vitest'
 
 vi.mock('../../../../src/services/notifications', () => ({
   fetchMyNotifications: vi.fn(),
+  markAllNotificationsRead: vi.fn().mockResolvedValue(undefined),
 }))
 
 import { render, screen, waitFor } from '@testing-library/react'
 import NotificationsPanel from '../../../../src/components/layout/NotificationsPanel'
 import { fetchMyNotifications } from '../../../../src/services/notifications'
+import { markAllNotificationsRead } from '../../../../src/services/notifications'
 import type { NotificationRow } from '../../../../src/types/models'
 import type { ServicedError } from '../../../../src/types/models'
 
@@ -38,6 +40,8 @@ describe('components/layout/NotificationsPanel', () => {
     expect(dialog).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('Newer notice')).toBeInTheDocument())
     expect(screen.getByText('Older notice')).toBeInTheDocument()
+    // Opening the panel acknowledges the loaded batch.
+    await waitFor(() => expect(markAllNotificationsRead).toHaveBeenCalled())
   })
 
   it('shows the unread badge for rows without read_at', async () => {

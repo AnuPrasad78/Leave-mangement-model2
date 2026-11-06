@@ -32,7 +32,7 @@ describe('ui/Field', () => {
       </Field>
     )
     const err = screen.getByText('Tell the approver why.')
-    expect(err).toHaveClass('muted mono')
+    expect(err).toHaveClass('field__error mono')
   })
 
   it('associates the error with the input for assistive tech', () => {
