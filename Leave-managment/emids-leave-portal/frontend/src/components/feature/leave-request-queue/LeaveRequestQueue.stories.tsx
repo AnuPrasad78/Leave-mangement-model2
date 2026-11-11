@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import LeaveRequestQueue from './LeaveRequestQueue'
-import type { TeamRequestRow } from '../../../types/models'
+import type { RequestDecision, TeamRequestRow } from '../../../types/models'
 
 // Props-only contract: the queue gets its rows and decision callbacks from
 // the page (which owns store wiring), so stories pin both.
@@ -11,7 +11,7 @@ const team: TeamRequestRow[] = [
   { id: 'LV-2026-00023', name: 'Prastina Dash', empId: 'EM-20798', absenceType: 'Business Travel', type: 'Business Travel', from: '2026-11-18', to: '2026-11-19', days: 2, mode: 'Full Day', reason: 'Client workshop', requestedOn: '2026-11-04', status: 'Rejected' },
 ] as TeamRequestRow[]
 
-const meta = {
+const meta: Meta<typeof LeaveRequestQueue> = {
   title: 'Features/LeaveRequestQueue',
   component: LeaveRequestQueue,
   argTypes: {
@@ -19,16 +19,26 @@ const meta = {
     decideMany: { action: 'decide (bulk)' },
     onError: { action: 'onError toast' },
   },
-} satisfies Meta<typeof LeaveRequestQueue>
+}
 
 export default meta
-type Story = StoryObj<typeof meta>
+type Story = StoryObj
 
 /** Default view: the Pending filter is what managers open the page to. */
 export const MixedQueue: Story = {
-  args: { team, decide: () => {}, decideMany: () => {}, onError: () => {} },
+  args: {
+    team,
+    decide: async (_id: string, _decision: RequestDecision) => undefined,
+    decideMany: async (_ids: string[], _decision: RequestDecision) => undefined,
+    onError: () => undefined,
+  },
 }
 
 export const EmptyQueue: Story = {
-  args: { team: [], decide: () => {}, decideMany: () => {}, onError: () => {} },
+  args: {
+    team: [],
+    decide: async (_id: string, _decision: RequestDecision) => undefined,
+    decideMany: async (_ids: string[], _decision: RequestDecision) => undefined,
+    onError: () => undefined,
+  },
 }

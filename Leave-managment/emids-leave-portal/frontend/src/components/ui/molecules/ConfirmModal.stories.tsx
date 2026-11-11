@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { ConfirmModal } from './ConfirmModal'
 
-const meta = {
+const meta: Meta<typeof ConfirmModal> = {
   title: 'UI/Molecules/ConfirmModal',
   component: ConfirmModal,
   tags: ['autodocs'],
@@ -9,34 +9,45 @@ const meta = {
     onConfirm: { action: 'confirm clicked' },
     onClose: { action: 'dismissed (backdrop / Esc / X)' },
   },
-  parameters: { layout: 'centered' },
-} satisfies Meta<typeof ConfirmModal>
+}
 
 export default meta
-type Story = StoryObj<typeof meta>
+type Story = StoryObj
 
 export const Separation: Story = {
-  args: {
-    title: 'Raise separation request?',
-    text: 'HR and your manager both get notified. You can withdraw it while it is still pending.',
-    confirmLabel: 'Confirm & notify HR',
-  },
+  render: () => (
+    <ConfirmModal
+      title='Raise separation request?'
+      text='HR and your manager both get notified. You can withdraw it while it is still pending.'
+      confirmLabel='Confirm & notify HR'
+      onConfirm={() => undefined}
+      onClose={() => undefined}
+    />
+  ),
 }
 
 export const DeactivateDanger: Story = {
-  args: {
-    title: 'Deactivate Prashant Kumar?',
-    text: 'Login access is revoked immediately; the profile stays in the directory.',
-    confirmLabel: 'Deactivate',
-    danger: true,
-  },
+  render: () => (
+    <ConfirmModal
+      title='Deactivate Prashant Kumar?'
+      text='Login access is revoked immediately; the profile stays in the directory.'
+      confirmLabel='Deactivate'
+      danger
+      onConfirm={() => undefined}
+      onClose={() => undefined}
+    />
+  ),
 }
 
 export const Busy: Story = {
-  args: {
-    title: 'Raise separation request?',
-    text: 'HR and your manager both get notified.',
-    confirmLabel: 'Confirm & notify HR',
-    busy: true,
-  },
+  render: () => (
+    <ConfirmModal
+      title='Raise separation request?'
+      text='HR and your manager both get notified.'
+      confirmLabel='Confirm & notify HR'
+      busy
+      onConfirm={() => undefined}
+      onClose={() => undefined}
+    />
+  ),
 }

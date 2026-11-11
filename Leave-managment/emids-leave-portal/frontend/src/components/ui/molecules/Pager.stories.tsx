@@ -1,15 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { Pager } from './Pager'
 
-const meta = {
+const meta: Meta<typeof Pager> = {
   title: 'UI/Molecules/Pager',
   component: Pager,
   tags: ['autodocs'],
-
-} satisfies Meta<typeof Pager>
+  argTypes: { onChange: { action: 'page change' } },
+}
 
 export default meta
-type Story = StoryObj<typeof meta>
+type Story = StoryObj
 
 export const Middle: Story = {
   args: { page: 2, pageCount: 5 },

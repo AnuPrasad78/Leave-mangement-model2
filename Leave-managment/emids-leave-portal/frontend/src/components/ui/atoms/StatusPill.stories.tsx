@@ -1,15 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { StatusPill } from './StatusPill'
 
-const meta = {
+const meta: Meta<typeof StatusPill> = {
   title: 'UI/Atoms/StatusPill',
   component: StatusPill,
   tags: ['autodocs'],
   parameters: { layout: 'centered' },
-} satisfies Meta<typeof StatusPill>
+}
 
 export default meta
-type Story = StoryObj<typeof meta>
+type Story = StoryObj
 
 export const Approved: Story = { args: { status: 'Approved' } }
 export const Pending: Story = { args: { status: 'Pending' } }
