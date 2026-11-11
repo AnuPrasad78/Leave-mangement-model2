@@ -1,4 +1,3 @@
-import { fn } from '@storybook/test'
 import type { Meta, StoryObj } from '@storybook/react'
 import { Field } from './Field'
 
@@ -32,7 +31,7 @@ export const WithError: Story = {
 
 /** The error markup stays accessible: aria-invalid + aria-describedby. */
 export const OptionalWithNote: Story = {
-  args: { label: 'Remarks', onChange: fn() },
+  args: { label: 'Remarks' },
   render: (args) => (
     <Field {...args} htmlFor='remarks'>
       <textarea id='remarks' className='textarea' maxLength={500} />

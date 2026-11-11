@@ -1,4 +1,3 @@
-import { fn } from '@storybook/test'
 import type { Meta, StoryObj } from '@storybook/react'
 import { Pager } from './Pager'
 
@@ -6,7 +5,7 @@ const meta = {
   title: 'UI/Molecules/Pager',
   component: Pager,
   tags: ['autodocs'],
-  args: { onChange: fn() },
+
 } satisfies Meta<typeof Pager>
 
 export default meta

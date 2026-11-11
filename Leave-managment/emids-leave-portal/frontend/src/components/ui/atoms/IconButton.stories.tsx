@@ -1,4 +1,3 @@
-import { fn } from '@storybook/test'
 import type { Meta, StoryObj } from '@storybook/react'
 import { IconButton } from './IconButton'
 import { IconBell, IconMenu, IconSearch } from '../../Icons'
@@ -14,7 +13,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Bell: Story = {
-  args: { label: 'Notifications', onClick: fn() },
+  args: { label: 'Notifications' },
   render: (args) => (
     <IconButton {...args}>
       <IconBell size={21} />
