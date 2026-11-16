@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ConfirmModal } from '../../../../src/components/ui'
+import { ConfirmModal } from '@/components/ui'
 
 function Harness({ danger = false }: { danger?: boolean }) {
   const [open, setOpen] = useState(false)

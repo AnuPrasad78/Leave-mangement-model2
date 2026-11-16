@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import ErrorBoundary from '../../../src/utils/ErrorBoundary'
+import ErrorBoundary from '@/utils/ErrorBoundary'
 
 function Bomb({ boom }) {
   if (boom) throw new Error('kaboom')

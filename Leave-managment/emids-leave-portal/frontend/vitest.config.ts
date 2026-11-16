@@ -7,7 +7,9 @@ export default defineConfig({
   esbuild: { jsx: 'automatic' },
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@': fileURLToPath(new URL('.', import.meta.url)),
+      '@app': fileURLToPath(new URL('./app', import.meta.url)),
+      '@tests': fileURLToPath(new URL('./tests', import.meta.url)),
     },
   },
   test: {
@@ -26,12 +28,18 @@ export default defineConfig({
         functions: 65,
         statements: 70,
       },
-      include: ['src/**/*.{ts,tsx}'],
+      include: ['**/*.{ts,tsx}'],
       exclude: [
-        'src/**/types/**',
-        'src/**/*.d.ts',
+        '**/types/**',
+        '**/*.d.ts',
+        '**/__mocks__/**',
+        'app/api/**',
         'tests/**',
-        'src/**/__mocks__/**',
+        '.next/**',
+        'scripts/**',
+        'playwright.config.ts',
+        'playwright-report/**',
+        'test-results/**',
       ],
     },
   },

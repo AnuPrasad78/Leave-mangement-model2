@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import '@fontsource-variable/plus-jakarta-sans'
-import '../src/styles/global.css'
-import '../src/styles/layout.css'
-import '../src/styles/login.css'
-import '../src/styles/pages.css'
+import '@/styles/global.css'
+import '@/styles/layout.css'
+import '@/styles/login.css'
+import '@/styles/pages.css'
 import { Providers } from './providers'
 
 export const metadata = {

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { WarnBanner } from '../../../../src/components/ui'
+import { WarnBanner } from '@/components/ui'
 
 describe('ui/WarnBanner', () => {
   it('renders children inside the warn-banner class', () => {

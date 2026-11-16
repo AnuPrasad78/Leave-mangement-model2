@@ -1,5 +1,5 @@
-import { mapRow, mapTeamRow, toBalances, EMPTY_BALANCES } from '../../../src/store/mappings'
-import type { LeaveBalancesRow, LeaveRequestSelectRow } from '../../../src/types/models'
+import { mapRow, mapTeamRow, toBalances, EMPTY_BALANCES } from '@/store/mappings'
+import type { LeaveBalancesRow, LeaveRequestSelectRow } from '@/types/models'
 
 // Pins the mappers currently inlined in store/AuthContext.jsx, verbatim.
 describe('store/mappings', () => {

@@ -1,9 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { usePagedData } from '../../../src/hooks/usePagedData'
-import type { PagedResult } from '../../../src/hooks/usePagedData'
-import type { ServicedError } from '../../../src/types/models'
+import { usePagedData } from '@/hooks/usePagedData'
+import type { PagedResult } from '@/hooks/usePagedData'
+import type { ServicedError } from '@/types/models'
 
 const env = (rows: string[], page: number, total: number): PagedResult<string> => ({
   page: { rows, page, page_size: 2, total, page_count: Math.ceil(total / 2) },

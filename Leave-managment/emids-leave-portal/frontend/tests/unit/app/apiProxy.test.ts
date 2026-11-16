@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import { NextRequest, NextResponse } from 'next/server'
-import { SESSION_COOKIE, CSRF_COOKIE, signSessionJwt } from '../../../src/lib/session'
+import { SESSION_COOKIE, CSRF_COOKIE, signSessionJwt } from '@/lib/session'
 
 type Handler = (request: NextRequest, ctx: { params: { path: string[] } }) => Promise<Response>
 

@@ -2,4 +2,4 @@
 
 import { makeClientPage } from '../../../clientPage'
 
-export default makeClientPage(() => import('@/pages/AdminLeavePolicies'))
+export default makeClientPage(() => import('./AdminLeavePolicies'))

@@ -2,15 +2,15 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { mockNextNavigation, mockRouter, mockLink } from '../mocks/nextNavigation'
-import { AuthContext } from '../../../src/store/AuthContext'
-import type { AuthContextValue } from '../../../src/store/AuthContext'
-import type { BalanceSummary, EmployeeProfileRow, TeamRequestRow } from '../../../src/types/models'
-import Layout from '../../../src/components/Layout'
+import { AuthContext } from '@/store/AuthContext'
+import type { AuthContextValue } from '@/store/AuthContext'
+import type { BalanceSummary, EmployeeProfileRow, TeamRequestRow } from '@/types/models'
+import Layout from '@/components/Layout'
 
 vi.mock('next/navigation', () => mockNextNavigation())
 vi.mock('next/link', () => ({ default: mockLink }))
 
-vi.mock('../../../src/services/notifications', () => ({
+vi.mock('@/services/notifications', () => ({
   fetchMyNotifications: vi.fn().mockResolvedValue({ rows: [], error: null }),
   markAllNotificationsRead: vi.fn().mockResolvedValue(undefined),
 }))

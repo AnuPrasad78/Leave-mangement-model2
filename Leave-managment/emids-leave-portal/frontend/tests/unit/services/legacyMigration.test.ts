@@ -1,11 +1,11 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
+vi.mock('@/services/apiClient', async () => await import('../mocks/apiClient'))
 
 import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
-import { migrateLegacyPicks } from '../../../src/services/legacyMigration'
-import type { HolidaysRow } from '../../../src/types/models'
-import type { LegacyHolidayData } from '../../../src/data/legacyHolidayData'
+import { migrateLegacyPicks } from '@/services/legacyMigration'
+import type { HolidaysRow } from '@/types/models'
+import type { LegacyHolidayData } from '@/data/legacyHolidayData'
 
 beforeEach(() => resetApiClientMock())
 

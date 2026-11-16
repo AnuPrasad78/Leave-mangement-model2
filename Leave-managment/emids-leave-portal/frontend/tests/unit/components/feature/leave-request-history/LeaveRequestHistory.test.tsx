@@ -1,11 +1,11 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockLink } from '../../../mocks/nextNavigation'
-import { STATUSES } from '../../../../../src/constants'
+import { STATUSES } from '@/constants'
 
 vi.mock('next/link', () => ({ default: mockLink }))
-import LeaveRequestHistory from '../../../../../src/components/feature/leave-request-history/LeaveRequestHistory'
-import type { LeaveRequestRow } from '../../../../../src/types/models'
+import LeaveRequestHistory from '@/components/feature/leave-request-history/LeaveRequestHistory'
+import type { LeaveRequestRow } from '@/types/models'
 
 const mine: LeaveRequestRow[] = [
   { id: 'LV-1', mode: 'Full Day', type: 'Compensatory Off', from: '2026-11-02', to: '2026-11-03', days: 2, reason: 'Comp for festival weekend', requestedOn: '2026-10-01', status: STATUSES.Pending },

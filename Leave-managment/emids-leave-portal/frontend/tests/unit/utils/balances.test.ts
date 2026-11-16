@@ -1,4 +1,4 @@
-import { balanceValue } from '../../../src/utils/balances'
+import { balanceValue } from '@/utils/balances'
 
 // Replaces the per-page balance arithmetic duplicated in Layout.jsx:145/149,
 // Dashboard.jsx:96 and ApplyLeave.jsx:26 — rows come pre-clamped from toBalances.

@@ -1,9 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { todayISO } from '../../../../../src/utils/dates'
-import { MODES } from '../../../../../src/constants'
-import LeaveRequestForm from '../../../../../src/components/feature/leave-request-form/LeaveRequestForm'
-import type { BalanceSummary, LeaveRequestInput, LeaveRequestRow, LeaveRequestUpdateInput } from '../../../../../src/types/models'
+import { todayISO } from '@/utils/dates'
+import { MODES } from '@/constants'
+import LeaveRequestForm from '@/components/feature/leave-request-form/LeaveRequestForm'
+import type { BalanceSummary, LeaveRequestInput, LeaveRequestRow, LeaveRequestUpdateInput } from '@/types/models'
 
 const leaveTypes = ['Paid Time Off', 'Work From Home']
 const balances: BalanceSummary = {

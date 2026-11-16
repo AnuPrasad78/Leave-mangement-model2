@@ -1,9 +1,9 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { AuthProvider } from '../src/store/AuthContext'
-import ErrorBoundary from '../src/utils/ErrorBoundary'
-import { Toast } from '../src/components/ui'
+import { AuthProvider } from '@/store/AuthContext'
+import ErrorBoundary from '@/utils/ErrorBoundary'
+import { Toast } from '@/components/ui'
 
 export function Providers({ children }: { children: ReactNode }) {
   return (

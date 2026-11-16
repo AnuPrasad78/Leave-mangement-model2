@@ -2,4 +2,4 @@
 
 import { makeClientPage } from '../../clientPage'
 
-export default makeClientPage(() => import('@/pages/Holidays'))
+export default makeClientPage(() => import('./Holidays'))

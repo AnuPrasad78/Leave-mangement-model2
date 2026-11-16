@@ -1,9 +1,9 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
+vi.mock('@/services/apiClient', async () => await import('../mocks/apiClient'))
 
 import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
-import { fetchLatestBalances } from '../../../src/services/balances'
+import { fetchLatestBalances } from '@/services/balances'
 
 beforeEach(() => resetApiClientMock())
 

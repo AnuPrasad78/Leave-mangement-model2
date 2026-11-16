@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { SegmentedControl } from '../../../../src/components/ui'
+import { SegmentedControl } from '@/components/ui'
 
 describe('ui/SegmentedControl', () => {
   const options = ['Full Day', 'First Half', 'Second Half']

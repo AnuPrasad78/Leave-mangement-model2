@@ -1,4 +1,4 @@
-import { fmtDays } from '../../../src/utils/format'
+import { fmtDays } from '@/utils/format'
 
 // Pinned to the current Layout.jsx fmtDays semantics (duplicated page-wide today):
 // integers render bare, everything else with exactly 2 decimals.

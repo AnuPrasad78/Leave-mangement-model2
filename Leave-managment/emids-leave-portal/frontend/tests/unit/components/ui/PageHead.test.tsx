@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { PageHead } from '../../../../src/components/ui'
+import { PageHead } from '@/components/ui'
 
 describe('ui/PageHead', () => {
   it('renders the pinned page-head markup', () => {

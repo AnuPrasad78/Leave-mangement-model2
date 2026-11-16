@@ -1,9 +1,9 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
+vi.mock('@/services/apiClient', async () => await import('../mocks/apiClient'))
 
 import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
-import { getSession, subscribeToAuth, signInWithPassword, signOut } from '../../../src/services/auth'
+import { getSession, subscribeToAuth, signInWithPassword, signOut } from '@/services/auth'
 
 beforeEach(() => {
   resetApiClientMock()

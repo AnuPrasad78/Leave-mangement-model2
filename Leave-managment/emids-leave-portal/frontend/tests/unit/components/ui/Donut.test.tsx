@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { Donut } from '../../../../src/components/ui'
+import { Donut } from '@/components/ui'
 
 describe('ui/Donut', () => {
   it('renders the used-percentage and label', () => {

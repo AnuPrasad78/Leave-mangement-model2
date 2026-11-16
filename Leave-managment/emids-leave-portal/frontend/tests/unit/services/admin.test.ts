@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
+vi.mock('@/services/apiClient', async () => await import('../mocks/apiClient'))
 
 import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
 import {
@@ -16,7 +16,7 @@ import {
   fetchOrgRequests,
   fetchPendingRequestsPage,
   fetchStaleRequests,
-} from '../../../src/services/admin'
+} from '@/services/admin'
 
 beforeEach(() => resetApiClientMock())
 
@@ -95,7 +95,7 @@ describe('services/admin', () => {
   })
 
   async function adminUpsertBalanceSafe() {
-    const { adminUpsertBalance } = await import('../../../src/services/admin')
+    const { adminUpsertBalance } = await import('@/services/admin')
     return adminUpsertBalance('e1', 2027, { annual_credited: 20 })
   }
 

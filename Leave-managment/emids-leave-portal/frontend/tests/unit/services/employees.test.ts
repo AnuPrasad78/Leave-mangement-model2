@@ -1,9 +1,9 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
+vi.mock('@/services/apiClient', async () => await import('../mocks/apiClient'))
 
 import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
-import { fetchProfileByAuthId, fetchReportIds } from '../../../src/services/employees'
+import { fetchProfileByAuthId, fetchReportIds } from '@/services/employees'
 
 beforeEach(() => resetApiClientMock())
 

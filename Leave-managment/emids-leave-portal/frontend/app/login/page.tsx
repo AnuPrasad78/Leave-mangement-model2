@@ -2,4 +2,4 @@
 
 import { makeClientPage } from '../clientPage'
 
-export default makeClientPage(() => import('../../src/pages/Login'))
+export default makeClientPage(() => import('./Login'))

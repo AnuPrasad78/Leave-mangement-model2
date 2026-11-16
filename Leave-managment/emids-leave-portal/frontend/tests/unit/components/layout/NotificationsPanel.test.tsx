@@ -1,16 +1,16 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../../src/services/notifications', () => ({
+vi.mock('@/services/notifications', () => ({
   fetchMyNotifications: vi.fn(),
   markAllNotificationsRead: vi.fn().mockResolvedValue(undefined),
 }))
 
 import { render, screen, waitFor } from '@testing-library/react'
-import NotificationsPanel from '../../../../src/components/layout/NotificationsPanel'
-import { fetchMyNotifications } from '../../../../src/services/notifications'
-import { markAllNotificationsRead } from '../../../../src/services/notifications'
-import type { NotificationRow } from '../../../../src/types/models'
-import type { ServicedError } from '../../../../src/types/models'
+import NotificationsPanel from '@/components/layout/NotificationsPanel'
+import { fetchMyNotifications } from '@/services/notifications'
+import { markAllNotificationsRead } from '@/services/notifications'
+import type { NotificationRow } from '@/types/models'
+import type { ServicedError } from '@/types/models'
 
 const row = (overrides: Partial<NotificationRow> = {}): NotificationRow => ({
   id: 1,

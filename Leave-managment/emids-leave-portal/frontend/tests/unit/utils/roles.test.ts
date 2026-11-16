@@ -1,4 +1,4 @@
-import { canApprove } from '../../../src/utils/roles'
+import { canApprove } from '@/utils/roles'
 
 describe('utils/roles', () => {
   it('approves for manager and admin', () => {

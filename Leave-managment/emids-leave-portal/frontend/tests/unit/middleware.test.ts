@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll } from 'vitest'
 import { NextRequest, NextResponse } from 'next/server'
-import { SESSION_COOKIE, signSessionJwt } from '../../src/lib/session'
-import { middleware } from '../../src/middleware.ts'
+import { SESSION_COOKIE, signSessionJwt } from '@/lib/session'
+import { middleware } from '@/middleware'
 
 let token = ''
 

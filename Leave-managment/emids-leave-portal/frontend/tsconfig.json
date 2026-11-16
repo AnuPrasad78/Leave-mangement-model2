@@ -25,7 +25,13 @@
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./src/*"
+        "./*"
+      ],
+      "@app/*": [
+        "./app/*"
+      ],
+      "@tests/*": [
+        "./tests/*"
       ]
     },
     "plugins": [
@@ -42,8 +48,19 @@
   },
   "include": [
     "next-env.d.ts",
-    "src",
     "app",
+    "assets",
+    "components",
+    "data",
+    "features",
+    "hooks",
+    "lib",
+    "services",
+    "store",
+    "types",
+    "utils",
+    "constants.ts",
+    "middleware.ts",
     "vitest.setup.ts",
     "next.config.mjs",
     ".next/types/**/*.ts"

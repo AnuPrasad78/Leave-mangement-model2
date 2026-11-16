@@ -8,7 +8,7 @@ const authListeners: unknown[] = []
 const signInWithPassword: Mock = vi.fn((..._args: unknown[]) => undefined)
 const signOutSession: Mock = vi.fn((..._args: unknown[]) => undefined)
 
-vi.mock('../../../src/services/auth', () => ({
+vi.mock('@/services/auth', () => ({
   getSession: (...args: unknown[]) => getAuthSession(...args),
   subscribeToAuth: vi.fn((callback) => {
     authListeners.push(callback)
@@ -20,7 +20,7 @@ vi.mock('../../../src/services/auth', () => ({
 
 const fetchProfileByAuthId: Mock = vi.fn(async () => ({ profile: null, error: { code: 'unknown', userMessage: 'profile lookup failed' }, warning: null }))
 const fetchReportIds: Mock = vi.fn(async () => ({ ids: [], error: null }))
-vi.mock('../../../src/services/employees', () => ({
+vi.mock('@/services/employees', () => ({
   fetchProfileByAuthId: (...args: unknown[]) => fetchProfileByAuthId(...args),
   fetchReportIds: (...args: unknown[]) => fetchReportIds(...args),
 }))
@@ -31,7 +31,7 @@ const insertMine: Mock = vi.fn((..._args: unknown[]) => undefined)
 const cancelMine: Mock = vi.fn((..._args: unknown[]) => undefined)
 const decide: Mock = vi.fn((..._args: unknown[]) => undefined)
 const decideMany: Mock = vi.fn((..._args: unknown[]) => undefined)
-vi.mock('../../../src/services/leaveRequests', () => ({
+vi.mock('@/services/leaveRequests', () => ({
   fetchMine: (...args: unknown[]) => fetchMine(...args),
   fetchTeam: (...args: unknown[]) => fetchTeam(...args),
   insertMine: (...args: unknown[]) => insertMine(...args),
@@ -41,19 +41,19 @@ vi.mock('../../../src/services/leaveRequests', () => ({
 }))
 
 const fetchLatestBalances: Mock = vi.fn(async () => ({ row: null, error: null }))
-vi.mock('../../../src/services/balances', () => ({
+vi.mock('@/services/balances', () => ({
   fetchLatestBalances: (...args: unknown[]) => fetchLatestBalances(...args),
 }))
 
 const fetchActiveLeaveTypeNames: Mock = vi.fn(async () => ({ names: [], error: null }))
-vi.mock('../../../src/services/leaveTypes', () => ({
+vi.mock('@/services/leaveTypes', () => ({
   fetchActiveLeaveTypeNames: (...args: unknown[]) => fetchActiveLeaveTypeNames(...args),
 }))
 
 // Mutation-success + refresh-failure: force the refresh to throw via the mapper
 // (services never reject by design), which exercises the store's
 // saved-but-not-refreshed handling.
-vi.mock('../../../src/store/mappings', async (importOriginal) => {
+vi.mock('@/store/mappings', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...(actual as object),
@@ -63,8 +63,8 @@ vi.mock('../../../src/store/mappings', async (importOriginal) => {
   }
 })
 
-import { AuthProvider, useAuth } from '../../../src/store/AuthContext'
-import type { AuthContextValue } from '../../../src/store/AuthContext'
+import { AuthProvider, useAuth } from '@/store/AuthContext'
+import type { AuthContextValue } from '@/store/AuthContext'
 
 function ctxOf(spy: { current: AuthContextValue | null }): AuthContextValue {
   if (!spy.current) throw new Error('no context yet')

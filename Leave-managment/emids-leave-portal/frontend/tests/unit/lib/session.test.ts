@@ -10,7 +10,7 @@ import {
   setSessionCookies,
   clearSessionCookies,
   isCsrfOk,
-} from '../../../src/lib/session'
+} from '@/lib/session'
 
 beforeAll(() => {
   process.env.JWT_SECRET = 'test-secret-test-secret-test-secret'

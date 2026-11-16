@@ -1,4 +1,4 @@
-import { validateSeparation } from '../../../../src/features/separations/validateSeparation'
+import { validateSeparation } from '@/features/separations/validateSeparation'
 
 const today = '2026-10-08'
 

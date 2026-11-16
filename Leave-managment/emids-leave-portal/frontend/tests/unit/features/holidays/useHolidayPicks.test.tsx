@@ -1,28 +1,28 @@
-import type { EmployeeProfileRow, HolidaysRow } from '../../../../src/types/models'
+import type { EmployeeProfileRow, HolidaysRow } from '@/types/models'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-vi.mock('../../../../src/services/holidays', () => ({
+vi.mock('@/services/holidays', () => ({
   fetchOptionalPicks: vi.fn(),
   fetchAllHolidays: vi.fn(),
   addOptionalPick: vi.fn(),
   removeOptionalPick: vi.fn(),
   isPickCapError: vi.fn(),
 }))
-vi.mock('../../../../src/services/legacyMigration', () => ({
+vi.mock('@/services/legacyMigration', () => ({
   migrateLegacyPicks: vi.fn(),
 }))
-vi.mock('../../../../src/data/legacyHolidayData', () => ({ legacyHolidayData: [] }))
+vi.mock('@/data/legacyHolidayData', () => ({ legacyHolidayData: [] }))
 
 import {
   fetchOptionalPicks,
   addOptionalPick,
   removeOptionalPick,
   isPickCapError,
-} from '../../../../src/services/holidays'
-import { migrateLegacyPicks } from '../../../../src/services/legacyMigration'
-import { useHolidayPicks } from '../../../../src/features/holidays/useHolidayPicks'
-import { TOAST_KIND, MAX_PICKS } from '../../../../src/constants'
+} from '@/services/holidays'
+import { migrateLegacyPicks } from '@/services/legacyMigration'
+import { useHolidayPicks } from '@/features/holidays/useHolidayPicks'
+import { TOAST_KIND, MAX_PICKS } from '@/constants'
 
 const profile = { id: 'e-me' } as unknown as EmployeeProfileRow
 const setToast = vi.fn()

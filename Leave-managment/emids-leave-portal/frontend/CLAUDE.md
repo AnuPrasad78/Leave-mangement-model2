@@ -123,24 +123,29 @@ Rules:
 Do not remove the existing visual contract. Prefer adding a clear hierarchy around the current files.
 
 ```text
-src/
+app/                     # Next.js App Router — thin page.tsx stubs + guard layouts per route group
+├── (portal)/(manager)/(admin)/   # role gates live in each group's layout.tsx
+└── api/                 # the BFF route handlers
+(frontend root — the folders below sit beside app/):
 ├── components/
 │   ├── ui/
 │   │   ├── atoms/
 │   │   ├── molecules/
-│   │   └── index.jsx
-│   └── feature/
-│       ├── leave-request-form/
-│       ├── leave-request-queue/
-│       ├── leave-request-history/
-│       └── dashboard-overview/
-├── features/
+│   │   └── index.ts
+│   ├── feature/         # organisms
+│   │   ├── leave-request-form/
+│   │   ├── leave-request-queue/
+│   │   ├── leave-request-history/
+│   │   └── admin/
+│   └── layout/
+├── features/            # pure domain rules
 │   ├── leave-requests/
 │   ├── balances/
 │   ├── holidays/
-│   └── separations/
+│   ├── separations/
+│   └── admin/
 ├── hooks/
-├── pages/
+├── lib/                 # server-only session helpers (middleware + BFF)
 ├── services/
 ├── store/
 └── utils/
@@ -184,7 +189,7 @@ If the existing file shape is retained, document the component level beside the 
 
 ### Services May
 
-- Reach the backend only through the same-origin transport in `src/services/apiClient.ts` (the Next.js `/api` BFF proxy). No direct cross-origin fetches.
+- Reach the backend only through the same-origin transport in `services/apiClient.ts` (the Next.js `/api` BFF proxy). No direct cross-origin fetches.
 - Normalize errors.
 - Execute database queries.
 - Perform service-level mappings only when required by the existing contract.
@@ -309,13 +314,13 @@ Do not create names containing unnecessary implementation detail.
 
 The protected existing contracts are:
 
-- Routes in [src/App.jsx](src/App.jsx)
-- Reusable primitives in [src/components/ui](src/components/ui)
-- Shared state in [src/store/AuthContext.jsx](src/store/AuthContext.jsx)
-- Service functions in [src/services](src/services)
-- Date and business-rule utilities in [src/utils](src/utils)
-- Current pages in [src/pages](src/pages)
-- Existing CSS classes in [src/styles](src/styles)
+- Routing as the Next.js App Router under [app](app) — thin `page.tsx` stubs, `(portal)`/`(manager)`/`(admin)` guard layouts, `api/` BFF handlers, `middleware.ts`
+- Reusable primitives in [components/ui](components/ui)
+- Shared state in [store/AuthContext.tsx](store/AuthContext.tsx) (admin persona in `store/AdminContext.tsx`)
+- Service functions in [services](services) — the only layer reaching the `/api` BFF transport
+- Date and business-rule utilities in [utils](utils), pure domain rules in [features](features)
+- Current page compositions co-located in [app](app) route folders (`app/<group>/<route>/<Name>.tsx`), mounted client-only via `makeClientPage` (`app/clientPage.tsx`)
+- Existing CSS classes in [styles](styles)
 - Unit and visual tests under [tests](tests)
 
 Do not bypass these contracts when extracting atomic components. The atom and molecule layer must depend on them rather than reimplementing them.

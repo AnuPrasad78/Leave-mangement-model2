@@ -1,4 +1,4 @@
-import { normalizeServiceError } from '../../../src/services/errors'
+import { normalizeServiceError } from '@/services/errors'
 
 
 describe('services/errors', () => {

@@ -1,5 +1,5 @@
-import { computeRequestDays, validateRequest } from '../../../../src/features/leave-requests/computeRequest'
-import { MODES } from '../../../../src/constants'
+import { computeRequestDays, validateRequest } from '@/features/leave-requests/computeRequest'
+import { MODES } from '@/constants'
 
 describe('features/leave-requests/computeRequestDays', () => {
   it('counts business days inclusively for full-day mode', () => {

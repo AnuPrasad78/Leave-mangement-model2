@@ -1,5 +1,5 @@
-import { findNextHoliday, formatHolidayTicker } from '../../../../src/features/holidays/ticker'
-import type { TickerHolidayRow } from '../../../../src/features/holidays/ticker'
+import { findNextHoliday, formatHolidayTicker } from '@/features/holidays/ticker'
+import type { TickerHolidayRow } from '@/features/holidays/ticker'
 
 const now = new Date('2026-10-08T14:33:00')
 

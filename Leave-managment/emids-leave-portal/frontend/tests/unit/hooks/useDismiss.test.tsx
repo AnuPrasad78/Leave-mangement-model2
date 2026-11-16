@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useDismiss } from '../../../src/hooks/useDismiss'
+import { useDismiss } from '@/hooks/useDismiss'
 
 function Harness({ enabled = true, escape = true, outside = true }) {
   const [open, setOpen] = useState(true)
