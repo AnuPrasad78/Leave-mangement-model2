@@ -1,11 +1,14 @@
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { mockNextNavigation, mockRouter, mockLink } from '../mocks/nextNavigation'
 import { AuthContext } from '../../../src/store/AuthContext'
 import type { AuthContextValue } from '../../../src/store/AuthContext'
 import type { BalanceSummary, EmployeeProfileRow, TeamRequestRow } from '../../../src/types/models'
 import Layout from '../../../src/components/Layout'
+
+vi.mock('next/navigation', () => mockNextNavigation())
+vi.mock('next/link', () => ({ default: mockLink }))
 
 vi.mock('../../../src/services/notifications', () => ({
   fetchMyNotifications: vi.fn().mockResolvedValue({ rows: [], error: null }),
@@ -25,14 +28,9 @@ const balances: BalanceSummary = {
 
 function setup({ profile = staffProfile, team = [], balances: b = balances, signOut = vi.fn(async () => true) }: { profile?: EmployeeProfileRow; team?: TeamRequestRow[]; balances?: BalanceSummary; signOut?: () => Promise<boolean> } = {}) {
   return render(
-    <MemoryRouter initialEntries={['/dashboard']}>
-      <AuthContext.Provider value={{ profile, team, balances: b, signOut } as unknown as AuthContextValue}>
-        <Routes>
-          <Route path='*' element={<Layout><div>page-body</div></Layout>} />
-          <Route path='/login' element={<div>login-here</div>} />
-        </Routes>
-      </AuthContext.Provider>
-    </MemoryRouter>
+    <AuthContext.Provider value={{ profile, team, balances: b, signOut } as unknown as AuthContextValue}>
+      <Layout><div>page-body</div></Layout>
+    </AuthContext.Provider>
   )
 }
 
@@ -139,7 +137,7 @@ describe('components/Layout', () => {
     setup({ signOut })
     openDrawer()
     await user.click(screen.getByRole('button', { name: /Log out/ }))
-    expect(screen.getByText('login-here')).toBeInTheDocument()
+    expect(mockRouter.push).toHaveBeenCalledWith('/login')
   })
 
   it('stays on the page when sign-out fails', async () => {

@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-React 18 + Vite leave-management portal ("emids-leave-portal") backed by a hosted Supabase project (Postgres, Auth, RLS). TypeScript/TSX, strict mode (`npm run typecheck`) — unit tests remain `.js/.jsx` by choice (Tier 1 migration).
+React 18 + Next.js (App Router) leave-management portal ("emids-leave-portal"). TypeScript/TSX, strict mode (`npm run typecheck`) — unit tests remain `.js/.jsx` by choice (Tier 1 migration).
 
 **Testing**: Vitest + Testing Library (unit, fully mocked) and Playwright (e2e against the real hosted Supabase), configured TDD-first. ESLint 9 (flat config) + Prettier. No CI runner configured.
 
@@ -20,8 +20,8 @@ React 18 + Vite leave-management portal ("emids-leave-portal") backed by a hoste
 Run inside the frontend folder (or use `npm --prefix <frontend-folder>`):
 
 ```bash
-npm run dev        # Vite dev server, port 5173 (launch.json config uses 5174 --strictPort)
-npm run build      # production build to dist/
+npm run dev        # Next dev server (launch.json config uses 5174)
+npm run build      # next build to .next/
 npm test           # vitest run — unit suites, fully mocked, never touches Supabase
 npm run test:watch
 npm run e2e        # playwright — real hosted Supabase via dev server on :5180, needs seeded users
@@ -29,8 +29,8 @@ npm run lint       # eslint . (flat config, 0 errors expected)
 npm run format     # prettier --write src tests
 ```
 
-- Env config is `.env.local` (gitignored, inside `frontend\`) with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; `frontend\.env.example` documents the full set. **Restart the dev server after changing it** — Vite only reads env at startup.
-- The service-role key (`SUPABASE_SERVICE_ROLE_KEY`) must NEVER have a `VITE_` prefix — a VITE_-prefixed value is inlined into the client bundle.
+- Env config is `.env.local` (gitignored, inside `frontend\`) with `NEXT_PUBLIC_API_BASE_URL` (FastAPI backend); `frontend\.env.example` documents the full set. **Restart the dev server after changing it** — Next only reads env at startup. **Never run `npm run build` while a dev server is up** — both write `.next/`.
+- The service-role key (`SUPABASE_SERVICE_ROLE_KEY`) must NEVER have a `NEXT_PUBLIC_` prefix — a public-prefixed value is inlined into the client bundle.
 
 ## Architecture
 
@@ -51,10 +51,11 @@ src/
                      # EMPTY_BALANCES), holidays/ticker (findNextHoliday, formatHolidayTicker) and
                      # useHolidayPicks, separations/validateSeparation
   hooks/useDismiss.js# escape / outside-mousedown dismissal used by drawer, profile menu, ConfirmModal, ChatPanel
-  services/          # the ONLY layer importing src/lib/supabase: leaveRequests, holidays, balances,
-                     # leaveTypes, employees, separations, legacyMigration, auth + errors.js
-                     # every call returns { data, error } with errors normalized (normalizeSupabaseError);
-                     # auth.js deliberately returns raw Supabase auth messages (Login's wording contract)
+  services/          # every service (leaveRequests, holidays, balances, leaveTypes, employees,
+                     # separations, legacyMigration, auth + errors.js) goes through apiClient.ts, which
+                     # fetches same-origin /api/<path> (the Next.js BFF proxy handing the request to the
+                     # FastAPI backend with the cookie's JWT). Every call returns { data, error };
+                     # auth deliberately returns raw backend messages (Login's wording contract)
   store/AuthContext.jsx # central state (see below); mappings.js holds row→viewmodel mappers
   utils/             # dates (fmtDate, dayName, businessDaysBetween, todayISO — LOCAL date, not UTC),
                      # format (fmtDays), roles (canApprove), balances (balanceRow/balanceValue), ErrorBoundary
@@ -73,9 +74,15 @@ Component classification is based on responsibility and behavior rather than vis
 
 `ConfirmModal` is a molecule because it owns the complete confirmation interaction: dialog semantics, focus management, Escape/outside dismissal, focus restoration, and confirm/cancel actions. A generic `Dialog` shell may be an atom if it only provides structural accessibility behavior; feature-specific confirmation remains owned by the page or feature layer.
 
-**Central state lives in `src/store/AuthContext.jsx`.** On sign-in it resolves the signed-in Supabase user to their `employees` row (`auth_user_id = user.id`), then loads `mine` (own leave requests), `team` (requests of direct reports via `manager_id`), `balances` (latest-year `leave_balances` row), and `leaveTypes` — all through the services layer, with failed loads toasted via `setToast`. Write helpers `addMine`, `cancelMine`, `decide`, `decideMany` wrap the leave-request mutations, and `setToast` is the global toast (single slot, 3200 ms, ref-based timer). Pages consume `useAuth()`.
+**Central state lives in `src/store/AuthContext.tsx`.** On sign-in it resolves the signed-in user to their `employees` row, then loads `mine` (own leave requests), `team` (requests of direct reports via `manager_id`), `balances`, and `leaveTypes` — all through the services layer, with failed loads toasted via `setToast`. Write helpers `addMine`, `cancelMine`, `decide`, `decideMany` wrap the leave-request mutations, and `setToast` is the global toast (single slot, 3200 ms, ref-based timer). Pages consume `useAuth()`.
 
 **Routing** (`src/App.jsx`): `<Guard>` requires sign-in; `<ManagerOnly>` additionally requires `canApprove(profile)` (role `manager` or `admin`, from `src/utils/roles.js`). An `ErrorBoundary` wraps the whole tree. Toast mounts once in App.
+
+**Auth & session (HttpOnly cookie + Next.js BFF)** — the browser never holds the JWT:
+
+- `frontend/middleware.ts` verifies the `lp_session` cookie (jose HS256, server-only `JWT_SECRET` shared with the backend) and redirects unauthenticated users to `/login` before render. Client-side guard layouts stay as a second layer.
+- `frontend/app/api/auth/{login,me,logout}/route.ts` and `frontend/app/api/[...path]/route.ts` are the BFF: they proxy the FastAPI backend (`API_INTERNAL_URL`, default `http://localhost:8000`), set/clear `lp_session` (HttpOnly, Secure, SameSite=Lax) + `lp_csrf` (readable) cookies, and forward the JWT as `Authorization: Bearer` server-side. Unsafe methods require `X-CSRF-Token` === the `lp_csrf` cookie (double-submit) — exempt only `/auth/login`.
+- `src/services/apiClient.ts` fetches same-origin `/api/<path>` and broadcasts `SIGNED_OUT` on any 401. Login errors are normalized by the BFF to "Invalid login credentials" (the e2e-pinned wording). `JWT_SECRET` must match the backend's value or every check fails.
 
 **UI conventions**: pages compose the `components/ui` primitives; their markup must stay byte-identical to the legacy app (class parity — e.g. `.hl-panel-head` survives its misleading name on purpose). Deliberate invisible additions: `aria-busy`/`aria-invalid`/`aria-describedby`, `role="status"`+`aria-live` toast, `role="dialog"`+`aria-modal`+Escape+focus-trap	modal. No page-level Supabase calls; magic strings come from `constants.js`; dates use `todayISO()` (local, fixes a UTC off-by-one).
 

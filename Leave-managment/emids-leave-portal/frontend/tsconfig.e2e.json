@@ -4,7 +4,7 @@
     "noImplicitAny": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "types": ["node", "vitest/globals", "@testing-library/jest-dom", "vite/client", "@playwright/test"]
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom", "@playwright/test"]
   },
   "include": ["tests/e2e"],
   "exclude": ["dist", "node_modules", "tests/unit", "tests/.visual-*"]

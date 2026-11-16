@@ -2,7 +2,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
 
-import { apiRequest, resetApiClientMock, setAccessToken, getAccessToken } from '../mocks/apiClient'
+import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
 import { fetchMine, insertMine } from '../../../src/services/leaveRequests'
 import { fetchLatestBalances } from '../../../src/services/balances'
 import { fetchProfileByAuthId, fetchReportIds } from '../../../src/services/employees'
@@ -103,12 +103,16 @@ describe('services — thrown transport failures keep the normalized contract', 
     expect(apiRequest).toHaveBeenCalledTimes(1)
   })
 
-  it('signOut reports the transport failure in its contract shape and still clears the token', async () => {
-    setAccessToken('stale-token')
+  it('signOut reports the transport failure in its contract shape and still emits signed-out', async () => {
     breakTransport(transportThrow)
+    const events: string[] = []
+    window.addEventListener('leave-portal-auth-change', (event) => {
+      const detail = (event as CustomEvent<{ event: string }>).detail
+      events.push(detail.event)
+    })
     const { error } = await signOut()
     expect(error).toMatchObject({ message: 'Failed to fetch' })
     expect(apiRequest).toHaveBeenCalledTimes(1)
-    expect(getAccessToken()).toBeNull()
+    expect(events).toEqual(['SIGNED_OUT'])
   })
 })

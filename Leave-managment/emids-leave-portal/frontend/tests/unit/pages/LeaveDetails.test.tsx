@@ -1,8 +1,10 @@
 import type { LeaveRequestRow } from '../../../src/types/models'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { mockLink } from '../mocks/nextNavigation'
 import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
+
+vi.mock('next/link', () => ({ default: mockLink }))
 import LeaveDetails from '../../../src/pages/LeaveDetails'
 
 const row = (id: string, status: string, extra: object = {}): LeaveRequestRow => ({
@@ -12,11 +14,9 @@ const row = (id: string, status: string, extra: object = {}): LeaveRequestRow =>
 
 function setup({ mine, cancelMine = vi.fn(async () => {}) }: { mine?: LeaveRequestRow[]; cancelMine?: () => Promise<void> } = {}) {
   render(
-    <MemoryRouter>
-      <AuthContext.Provider value={{ mine: mine ?? [], cancelMine, CURRENT_YEAR: 2026 } as unknown as AuthContextValue}>
-        <LeaveDetails />
-      </AuthContext.Provider>
-    </MemoryRouter>
+    <AuthContext.Provider value={{ mine: mine ?? [], cancelMine, CURRENT_YEAR: 2026 } as unknown as AuthContextValue}>
+      <LeaveDetails />
+    </AuthContext.Provider>
   )
   return cancelMine
 }
@@ -60,9 +60,8 @@ describe('pages/LeaveDetails', () => {
     const user = userEvent.setup()
     const updateMine = vi.fn(async () => true)
     render(
-      <MemoryRouter>
-        <AuthContext.Provider
-          value={{
+      <AuthContext.Provider
+        value={{
             mine: [row('LV-1', 'Pending')],
             cancelMine: vi.fn(async () => {}),
             updateMine,
@@ -74,7 +73,6 @@ describe('pages/LeaveDetails', () => {
         >
           <LeaveDetails />
         </AuthContext.Provider>
-      </MemoryRouter>
     )
 
     await user.click(screen.getByRole('button', { name: 'Edit request LV-1' }))

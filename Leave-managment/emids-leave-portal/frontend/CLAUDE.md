@@ -40,7 +40,7 @@ Examples:
 
 Rules:
 
-- Atoms must not call Supabase.
+- Atoms must not call the backend.
 - Atoms must not contain feature-specific business logic.
 - Atoms may receive props and render them.
 - Atoms must be reusable from at least two contexts or be part of an established primitive contract.
@@ -66,7 +66,7 @@ Examples:
 Rules:
 
 - Molecules may combine atoms, own a small interaction, and consume a focused hook.
-- Molecules must not directly import Supabase or own unrelated feature state.
+- Molecules must not directly import the backend or own unrelated feature state.
 - Molecules should expose a stable, understandable prop contract.
 - Molecules should not become large page-level implementations.
 - ConfirmModal is a molecule because it owns a complete confirmation interaction: dialog semantics, focus management, dismissal behavior, and confirmation/cancellation actions.
@@ -102,7 +102,7 @@ Pages are route-level compositions.
 Rules:
 
 - Pages should compose organisms and route-level context.
-- Pages should not directly query Supabase.
+- Pages should not directly query the backend.
 - Pages should not contain large helper implementations.
 - Pages should not own generic component behavior.
 - Page components may use guards, routing, page metadata, and feature hooks.
@@ -160,7 +160,7 @@ If the existing file shape is retained, document the component level beside the 
 
 ### UI Components Must Not
 
-- Import Supabase.
+- Import the backend transport or apiClient.
 - Call leave-request service functions directly.
 - Own authentication state.
 - Implement domain validation.
@@ -184,7 +184,7 @@ If the existing file shape is retained, document the component level beside the 
 
 ### Services May
 
-- Import the shared Supabase client.
+- Reach the backend only through the same-origin transport in `src/services/apiClient.ts` (the Next.js `/api` BFF proxy). No direct cross-origin fetches.
 - Normalize errors.
 - Execute database queries.
 - Perform service-level mappings only when required by the existing contract.
@@ -292,7 +292,7 @@ Do not change CSS or element structure without a visual baseline check. Preserve
 
 ### E2E tests
 
-E2E tests should cover real user goals and real database flows. Unit tests should remain fully mocked at the Supabase boundary.
+E2E tests should cover real user goals and real database flows. Unit tests should remain fully mocked at the transport boundary.
 
 ## Atomic Design Naming
 
@@ -322,9 +322,9 @@ Do not bypass these contracts when extracting atomic components. The atom and mo
 
 ## Testing Third-Party and External Dependencies
 
-- Supabase must remain behind the service layer.
+- The backend transport (apiClient → `/api` BFF) must remain behind the service layer.
 - Authentication must remain in the context layer.
-- No page may directly invoke Supabase.
+- No page may directly invoke the backend or apiClient.
 - No UI component may import a page.
 - No service may import a page or UI component.
 - No hook may render UI.

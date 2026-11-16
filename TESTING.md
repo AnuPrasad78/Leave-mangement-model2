@@ -36,14 +36,15 @@ Requires the real backend reachable (Docker compose up: see "Docker layout" belo
 then:
 
 ```bash
-npm run e2e            # boots its own Vite dev server on :5180 (strict port)
+npm run e2e            # boots its own Next.js dev server on :5180 (strict port)
 npx playwright test tests/e2e/apply-leave.spec.ts       # one spec
 npx playwright test -g "manager sign-in"                # one test by name
 ```
 
 Mutating specs create their own rows and clean up after themselves; logins come from
-`tests/e2e/fixtures.ts` (see `SEED_PASSWORD`). Requires the seeded auth users created by
-the Supabase setup skill (`supabase-setup`).
+`tests/e2e/fixtures.ts` (see `SEED_PASSWORD`). Requires the FastAPI backend up
+(`docker compose -f backend/compose.yaml up -d db api`) with its seeded users, and
+`frontend/.env.local` carrying the server-only env (`API_INTERNAL_URL`, `JWT_SECRET` matching the backend).
 
 ## Backend — pytest
 

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '../store/AuthContext'
 import { TOAST_KIND } from '../constants'
 import { PageHead } from '../components/ui'
@@ -6,7 +6,7 @@ import LeaveRequestForm from '../components/feature/leave-request-form/LeaveRequ
 import { usePickedOptionalHolidays } from '../features/holidays/usePickedOptionalHolidays'
 
 export default function ApplyLeave() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const { setToast, addMine, leaveTypes, balances, profile } = useAuth()
   const pickedOptionalHolidays = usePickedOptionalHolidays(profile ?? null, setToast)
 
@@ -18,11 +18,11 @@ export default function ApplyLeave() {
         balances={balances}
         pickedOptionalHolidays={pickedOptionalHolidays}
         addMine={addMine}
-        onCancel={() => navigate('/dashboard')}
+        onCancel={() => router.push('/dashboard')}
         onError={(message) => setToast(message, TOAST_KIND.Error)}
         onSubmitted={(message) => {
           setToast(message)
-          navigate('/leave-details')
+          router.push('/leave-details')
         }}
       />
     </div>

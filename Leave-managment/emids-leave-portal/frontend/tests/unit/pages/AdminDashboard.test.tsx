@@ -10,7 +10,10 @@ vi.mock('../../../src/services/admin', () => ({
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { mockNextNavigation, mockLink } from '../mocks/nextNavigation'
+
+vi.mock('next/navigation', () => mockNextNavigation())
+vi.mock('next/link', () => ({ default: mockLink }))
 import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
 import AdminDashboard from '../../../src/pages/AdminDashboard'
 import { adminCarryForward, fetchAdminEmployees, fetchLeavePolicies, fetchOrgRequests, fetchStaleRequests } from '../../../src/services/admin'
@@ -58,22 +61,18 @@ describe('pages/AdminDashboard', () => {
 
   function setup(setToast = vi.fn()) {
     render(
-      <MemoryRouter>
-        <AuthContext.Provider value={{ setToast } as unknown as AuthContextValue}>
-          <AdminDashboard />
-        </AuthContext.Provider>
-      </MemoryRouter>
+      <AuthContext.Provider value={{ setToast } as unknown as AuthContextValue}>
+        <AdminDashboard />
+      </AuthContext.Provider>
     )
     return setToast
   }
 
   it('renders live org counts instead of hardcoded tiles', async () => {
     render(
-      <MemoryRouter>
-        <AuthContext.Provider value={{ setToast: vi.fn() } as unknown as AuthContextValue}>
-          <AdminDashboard />
-        </AuthContext.Provider>
-      </MemoryRouter>
+      <AuthContext.Provider value={{ setToast: vi.fn() } as unknown as AuthContextValue}>
+        <AdminDashboard />
+      </AuthContext.Provider>
     )
     await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument()) // headcount
     expect(screen.getByText('1')).toBeInTheDocument() // managers

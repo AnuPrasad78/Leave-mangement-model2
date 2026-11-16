@@ -310,9 +310,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-// Non-null by contract: every consumer renders under AuthProvider in main.tsx,
-// and tests provide their own provider; original JS destructured the same way.
-export const useAuth = (): AuthContextValue => useContext(AuthContext) as AuthContextValue
+// Neutral value used only where no AuthProvider is in scope — the build-time
+// statically generated pass runs before any provider hydration. Everything is
+// signed-out/empty; the client pass always has the real provider value.
+const AUTH_FALLBACK: AuthContextValue = {
+  signedIn: false,
+  signIn: async () => null,
+  signOut: async () => false,
+  profile: null,
+  mine: [],
+  team: [],
+  balances: null,
+  leaveTypes: [],
+  authReady: false,
+  addMine: async () => null,
+  updateMine: async () => false,
+  decide: async () => {},
+  decideMany: async () => {},
+  cancelMine: async () => {},
+  toast: null,
+  setToast: () => {},
+  CURRENT_YEAR: new Date().getFullYear(),
+}
+
+// Non-null by contract: every consumer renders under AuthProvider (the client
+// pass) or tests provide their own provider.
+export const useAuth = (): AuthContextValue => useContext(AuthContext) ?? AUTH_FALLBACK
 
 // Re-exported for consumers that need to inspect the shape (poked by tests).
 export type { ServicedError }

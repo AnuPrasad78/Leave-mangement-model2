@@ -157,4 +157,22 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>
 }
 
-export const useAdmin = (): AdminContextValue => useContext(AdminContext) as AdminContextValue
+// Neutral value for passes with no AdminProvider in scope (build prerender);
+// the client pass always renders under AdminProvider.
+const ADMIN_FALLBACK: AdminContextValue = {
+  employees: [],
+  total: 0,
+  page: 1,
+  pageCount: 0,
+  loading: false,
+  search: '',
+  setSearch: () => {},
+  setPage: () => {},
+  reload: () => {},
+  createEmployee: async () => null,
+  updateEmployee: async () => null,
+  setEmployeeActive: async () => false,
+  initPasswordReset: async () => null,
+}
+
+export const useAdmin = (): AdminContextValue => useContext(AdminContext) ?? ADMIN_FALLBACK

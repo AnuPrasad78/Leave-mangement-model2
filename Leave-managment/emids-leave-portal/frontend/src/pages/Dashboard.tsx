@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '../store/AuthContext'
 import { TOAST_KIND } from '../constants'
 import { canApprove, isAdmin } from '../utils/roles'
@@ -24,7 +24,7 @@ const ACTIONS: { to: string; title: string; text: string; icon: IconComponent }[
 const firstName = (fullName: string | null | undefined) => (fullName ?? '').split(' ').slice(0, 2).join(' ').trim()
 
 export default function Dashboard() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const { setToast, profile, balances: fetched } = useAuth()
 
   const balances = fetched ?? EMPTY_BALANCES
@@ -111,7 +111,7 @@ export default function Dashboard() {
 
         <div className="dash-actions" aria-label="Quick actions">
           {ACTIONS.filter((a) => canApprove(profile) || a.to !== '/leave-requests').map((a) => (
-            <button key={a.to} className="card action-card brand-frame" onClick={() => navigate(a.to)}>
+            <button key={a.to} className="card action-card brand-frame" onClick={() => router.push(a.to)}>
               <a.icon className="action-card__icon" size={26} />
               <div className="action-card__title">{a.title}</div>
               <p className="action-card__text">{a.text}</p>

@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import Link from 'next/link'
 import { Button } from '../components/ui'
 import { useAuth } from '../store/AuthContext'
 import { TOAST_KIND } from '../constants'
@@ -305,7 +305,7 @@ export default function AdminDashboard() {
             {ADMIN_LINKS.map((item) => (
               <Link
                 key={item.to}
-                to={item.to}
+                href={item.to}
                 className="admin-console__link"
               >
                 <span className="admin-console__link-number">
@@ -362,7 +362,7 @@ export default function AdminDashboard() {
             </div>
 
             <Link
-              to="/admin/reminders"
+              href="/admin/reminders"
               className="admin-console__watch-link"
             >
               Review stale requests <span>→</span>
@@ -409,7 +409,7 @@ export default function AdminDashboard() {
           </div>
 
           <Link
-            to="/admin/employees"
+            href="/admin/employees"
             className="admin-console__directory-link"
           >
             View all employees →

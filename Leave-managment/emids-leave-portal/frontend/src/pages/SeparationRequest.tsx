@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRouter } from 'next/navigation'
 import { separationReasons, TOAST_KIND } from '../constants'
 import { todayISO } from '../utils/dates'
 import { useAuth } from '../store/AuthContext'
@@ -9,7 +9,7 @@ import type { SeparationValidationErrors } from '../features/separations/validat
 import { Button, ConfirmModal, Field, PageHead, WarnBanner } from '../components/ui'
 
 export default function SeparationRequest() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const { setToast, profile } = useAuth()
   const [lwd, setLwd] = useState('')
   const [reason, setReason] = useState('')
@@ -43,7 +43,7 @@ export default function SeparationRequest() {
       }
       setConfirming(false)
       setToast('Separation request raised · HR notified')
-      navigate('/dashboard')
+      router.push('/dashboard')
     } catch (error) {
       setOutcomeUnknown(true)
       setToast(error instanceof Error
@@ -103,7 +103,7 @@ export default function SeparationRequest() {
         </div>
 
         <div className="form-actions">
-          <Button variant="ghost" onClick={() => navigate('/dashboard')}>Cancel</Button>
+          <Button variant="ghost" onClick={() => router.push('/dashboard')}>Cancel</Button>
           <Button variant="danger" onClick={submit} disabled={outcomeUnknown}>Submit Separation Request</Button>
         </div>
       </div>

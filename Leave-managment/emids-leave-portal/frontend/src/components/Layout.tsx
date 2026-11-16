@@ -1,6 +1,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '../store/AuthContext'
 import { useDismiss } from '../hooks/useDismiss'
 import { canApprove, isAdmin } from '../utils/roles'
@@ -74,7 +75,7 @@ export default function Layout({ children }: LayoutProps) {
   const [unreadCount, setUnreadCount] = useState(0)
 
   const { signOut, profile, mine, team, balances } = useAuth()
-  const navigate = useNavigate()
+  const router = useRouter()
 
   const drawerRef = useRef<HTMLDivElement | null>(null)
   useDismiss(drawerRef, {
@@ -145,8 +146,8 @@ export default function Layout({ children }: LayoutProps) {
   }, [notifsOpen, refreshUnread])
 
   // The Admin console page is branded differently in the top bar.
-  const location = useLocation()
-  const onAdminConsole = isAdmin(profile) && location.pathname.startsWith('/admin')
+  const pathname = usePathname()
+  const onAdminConsole = isAdmin(profile) && (pathname ?? '').startsWith('/admin')
   const headerTitle = onAdminConsole ? 'Admin Console' : 'Leave Management'
 
   // Keep the browser tab title in sync with the top bar.
@@ -167,7 +168,7 @@ export default function Layout({ children }: LayoutProps) {
   })
 
   const goto = (to: string) => {
-    navigate(to)
+    router.push(to)
     setOpen(false)
     setProfileOpen(false)
   }
@@ -177,7 +178,7 @@ export default function Layout({ children }: LayoutProps) {
 
     setOpen(false)
     setProfileOpen(false)
-    navigate('/login')
+    router.push('/login')
   }
 
   const ann = balanceRow(balances, 'available')
@@ -197,7 +198,7 @@ export default function Layout({ children }: LayoutProps) {
           aria-label="Emids home"
           onClick={() => goto(isAdmin(profile) ? '/admin' : '/dashboard')}
         >
-          <img src={logo} alt="Emids" />
+          <img src={logo.src} alt="Emids" />
         </button>
 
         <div className="header__title">{headerTitle}</div>
@@ -324,9 +325,9 @@ export default function Layout({ children }: LayoutProps) {
 
         <nav className="drawer__nav">
           {visibleNav.map(({ to, num, label, icon: Icon }) => (
-            <NavLink
+            <Link
               key={to}
-              to={to}
+              href={to}
               className="nav-item"
               onClick={() => setOpen(false)}
             >
@@ -338,7 +339,7 @@ export default function Layout({ children }: LayoutProps) {
                   {pendingRequests}
                 </span>
               )}
-            </NavLink>
+            </Link>
           ))}
         </nav>
 

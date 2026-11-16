@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRouter } from 'next/navigation'
 import { useDismiss } from '../../hooks/useDismiss'
 import { fetchAdminEmployees } from '../../services/admin'
 import type { EmployeeAdminRow, LeaveRequestRow, TeamRequestRow } from '../../types/models'
@@ -29,7 +29,7 @@ interface GroupResult {
 export default function SearchPanel({ mine, team, searchEmployees, onDismiss }: SearchPanelProps) {
   const ref = useRef<HTMLDivElement | null>(null)
   useDismiss(ref, { onClose: onDismiss, ignoreSelector: '[data-search-toggle]' })
-  const navigate = useNavigate()
+  const router = useRouter()
 
   // Programmatic focus on mount — jsx-a11y forbids the autoFocus attribute,
   // but pointing the keyboard at the query box is still what a search dropdown
@@ -111,7 +111,7 @@ export default function SearchPanel({ mine, team, searchEmployees, onDismiss }: 
   }, [active, employees, mine, searchEmployees, team, trimmed])
 
   const goTo = (to: string) => {
-    navigate(to)
+    router.push(to)
     onDismiss()
   }
 

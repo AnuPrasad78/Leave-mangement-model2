@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import Link from 'next/link'
 import { fmtDate } from '../../../utils/dates'
 import { STATUSES } from '../../../constants'
 import { PanelTable, StatusPill, ConfirmModal } from '../../ui'
@@ -92,7 +92,7 @@ export default function LeaveRequestHistory({ mine, cancelMine, onEdit, yearLabe
         rowKey={(r) => r.id}
         emptyBlock={
           <div className="table__empty">
-            No requests on file. (<Link to="/apply-leave">Raise one</Link>)
+            No requests on file. (<Link href="/apply-leave">Raise one</Link>)
           </div>
         }
       />

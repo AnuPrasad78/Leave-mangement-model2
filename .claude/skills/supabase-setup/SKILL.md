@@ -5,6 +5,12 @@ description: Bootstrap or verify the hosted Supabase project behind the portal â
 
 # Supabase setup for the leave portal
 
+> **Outdated for auth:** the portal no longer talks to Supabase at runtime. The live backend is the
+> in-repo FastAPI app (`backend/api/`, its own `User` table + JWT sessions, started via
+> `docker compose -f backend/compose.yaml up -d db api`), and the frontend holds a server-only
+> `JWT_SECRET` + `API_INTERNAL_URL` (see `frontend/.env.example`). The steps below describe the
+> legacy hosted-Supabase project and remain useful for migrating or mirroring its data.
+
 The backend is a hosted Supabase project (Postgres + Auth + RLS). SQL runs in the dashboard SQL editor; user seeding runs locally. The backend definition lives in `backend/supabase/` (repo-relative); the seeding tool lives in `frontend/scripts/` â€” Node resolves its deps from the frontend's `node_modules`.
 
 ## Fresh install (order matters)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '../store/AuthContext'
 import { isAdmin } from '../utils/roles'
 import { Button, Field } from '../components/ui'
@@ -26,7 +26,7 @@ const FEATURES = [
 
 export default function Login() {
   const { signIn, signedIn, profile } = useAuth()
-  const navigate = useNavigate()
+  const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,11 +35,9 @@ export default function Login() {
   useEffect(() => {
     // Redirect users according to their role after authentication.
     if (signedIn && profile) {
-      navigate(isAdmin(profile) ? '/admin' : '/dashboard', {
-        replace: true,
-      })
+      router.replace(isAdmin(profile) ? '/admin' : '/dashboard')
     }
-  }, [signedIn, profile, navigate])
+  }, [signedIn, profile, router])
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -59,7 +57,7 @@ export default function Login() {
     <div className="login">
       <section className="login__brand">
         <div>
-          <img className="login__logo" src={logoLight} alt="Emids" />
+          <img className="login__logo" src={logoLight.src} alt="Emids" />
           <div className="login__plate">Leave Management Portal</div>
         </div>
 

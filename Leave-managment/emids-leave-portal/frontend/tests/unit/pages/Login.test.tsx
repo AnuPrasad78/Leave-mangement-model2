@@ -1,8 +1,10 @@
 import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { mockNextNavigation, mockRouter } from '../mocks/nextNavigation'
 import Login from '../../../src/pages/Login'
+
+vi.mock('next/navigation', () => mockNextNavigation())
 
 // The role-based redirect needs a profile: employees/managers land on the
 // dashboard, admins on the admin console.
@@ -11,15 +13,9 @@ const ADMIN_PROFILE = { system_role: 'admin' }
 
 function setup({ signedIn = false, signIn = vi.fn(async () => null as string | null), profile }: { signedIn?: boolean; signIn?: (email: string, password: string) => Promise<string | null>; profile?: unknown } = {}) {
   return render(
-    <MemoryRouter initialEntries={['/login']}>
-      <AuthContext.Provider value={{ signedIn, signIn, profile: profile ?? (signedIn ? EMPLOYEE_PROFILE : null) } as unknown as AuthContextValue}>
-        <Routes>
-          <Route path='/login' element={<Login />} />
-          <Route path='/dashboard' element={<div>dashboard-here</div>} />
-          <Route path='/admin' element={<div>admin-here</div>} />
-        </Routes>
-      </AuthContext.Provider>
-    </MemoryRouter>
+    <AuthContext.Provider value={{ signedIn, signIn, profile: profile ?? (signedIn ? EMPLOYEE_PROFILE : null) } as unknown as AuthContextValue}>
+      <Login />
+    </AuthContext.Provider>
   )
 }
 
@@ -34,12 +30,12 @@ describe('pages/Login', () => {
 
   it('routes to the dashboard when already signed in', async () => {
     setup({ signedIn: true })
-    await waitFor(() => expect(screen.getByText('dashboard-here')).toBeInTheDocument())
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/dashboard'))
   })
 
   it('routes admins to the admin console when already signed in', async () => {
     setup({ signedIn: true, profile: ADMIN_PROFILE })
-    await waitFor(() => expect(screen.getByText('admin-here')).toBeInTheDocument())
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/admin'))
   })
 
   it('surfaces the sign-in error next to the password field and trims the email', async () => {

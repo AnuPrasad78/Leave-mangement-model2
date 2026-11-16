@@ -1,7 +1,9 @@
 import type { BalanceSummary, EmployeeProfileRow } from '../../../src/types/models'
 import { render, screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { mockNextNavigation } from '../mocks/nextNavigation'
+
+vi.mock('next/navigation', () => mockNextNavigation())
 
 vi.mock('../../../src/services/holidays', () => ({
   fetchUpcomingHolidays: vi.fn(),
@@ -23,11 +25,9 @@ function setup({ balances: b = balances, setToast = vi.fn(), upcoming = () => ne
   vi.mocked(fetchUpcomingHolidays).mockImplementation(upcoming as never)
   vi.mocked(fetchOptionalPicks).mockImplementation(picks as never)
   render(
-    <MemoryRouter initialEntries={['/dashboard']}>
-      <AuthContext.Provider value={{ profile: { id: 'e-me', location: 'Bangalore' } as unknown as EmployeeProfileRow, balances: b as unknown as BalanceSummary, setToast } as unknown as AuthContextValue}>
-        <Dashboard />
-      </AuthContext.Provider>
-    </MemoryRouter>
+    <AuthContext.Provider value={{ profile: { id: 'e-me', location: 'Bangalore' } as unknown as EmployeeProfileRow, balances: b as unknown as BalanceSummary, setToast } as unknown as AuthContextValue}>
+      <Dashboard />
+    </AuthContext.Provider>
   )
   return setToast
 }

@@ -13,8 +13,8 @@ components/ui/      # reusable primitives: Button, Field, PageHead, PanelTable, 
                     # IconButton, StatusPill, Toast, Donut, WarnBanner, ConfirmModal (index.jsx barrel)
 components/layout/  # ProfileMenu, ChatPanel (split out of Layout.jsx)
 hooks/useDismiss.js # Escape/outside-mousedown dismissal for popovers, drawers, dialogs
-services/           # the ONLY layer importing lib/supabase — leaveRequests, holidays, balances,
-                    # leaveTypes, employees, separations, legacyMigration, errors (normalizeSupabaseError)
+services/           # the ONLY layer reaching the transport — leaveRequests, holidays, balances,
+                    # leaveTypes, employees, separations, legacyMigration, errors (normalized), auth
 store/              # AuthContext.jsx (session/profile/mine/team/balances/toast + mutations), mappings.js
 utils/              # dates (fmtDate/dayName/businessDaysBetween/todayISO local), format (fmtDays),
                     # roles (canApprove), balances (balanceRow/balanceValue), ErrorBoundary
@@ -29,7 +29,7 @@ pages/              # 7 routing targets, consume ui + services only
 
 ## Data access
 
-- **Never query Supabase from a page.** Route it through a `services/*` module returning `{ data, error: normalized }`; the caller decides toast wording via `setToast(error.userMessage, TOAST_KIND.Error)`.
+- **Never fetch the backend from a page.** Route it through a `services/*` module (all calls go via `apiClient.ts` → the same-origin `/api` BFF route handlers) returning `{ data, error: normalized }`; the caller decides toast wording via `setToast(error.userMessage, TOAST_KIND.Error)`.
 - Toast via `useAuth().setToast` — one global toast (3200 ms); never store timers on function properties.
 
 ## UI primitives (write once, reuse)

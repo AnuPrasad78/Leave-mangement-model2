@@ -4,19 +4,17 @@ export interface ApiError extends Error {
   headers?: Record<string, string>
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
-const ACCESS_TOKEN_KEY = 'leave-portal-access-token'
+/** Internal pub-sub event the AuthContext listens to; also dispatched on 401. */
+export const AUTH_EVENT = 'leave-portal-auth-change'
 
-export function getAccessToken(): string | null {
-  return typeof localStorage === 'undefined' ? null : localStorage.getItem(ACCESS_TOKEN_KEY)
+function clearCsrfInBrowser(): void {
+  if (typeof document === 'undefined') return
+  document.cookie = 'lp_csrf=; Path=/; Max-Age=0; SameSite=Lax'
 }
 
-export function setAccessToken(token: string): void {
-  localStorage.setItem(ACCESS_TOKEN_KEY, token)
-}
-
-export function clearAccessToken(): void {
-  localStorage.removeItem(ACCESS_TOKEN_KEY)
+function emitSignedOut(): void {
+  if (typeof window === 'undefined' || typeof CustomEvent === 'undefined') return
+  window.dispatchEvent(new CustomEvent(AUTH_EVENT, { detail: { event: 'SIGNED_OUT', session: null } }))
 }
 
 function randomHex(byteCount: number): string {
@@ -30,10 +28,17 @@ function buildTraceparent(): string | null {
   return `00-${randomHex(16)}-${randomHex(8)}-01`
 }
 
+function csrfHeader(): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.split('; ').find((entry) => entry.startsWith('lp_csrf='))
+  return match ? decodeURIComponent(match.slice('lp_csrf='.length)) : null
+}
+
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
-  const token = getAccessToken()
-  if (token) headers.set('Authorization', `Bearer ${token}`)
+  // Harmless on safe methods: the proxy only enforces the header for unsafe ones.
+  const csrf = csrfHeader()
+  if (csrf) headers.set('X-CSRF-Token', csrf)
   if (init.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
@@ -42,8 +47,11 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     if (traceparent) headers.set('traceparent', traceparent)
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers })
-  if (response.status === 401) clearAccessToken()
+  const response = await fetch(`/api${path}`, { ...init, headers, credentials: 'same-origin' })
+  if (response.status === 401) {
+    clearCsrfInBrowser()
+    emitSignedOut()
+  }
   if (!response.ok) {
     let detail = 'Something went wrong. Please try again.'
     try {

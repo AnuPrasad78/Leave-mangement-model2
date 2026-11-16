@@ -128,7 +128,7 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("JWT_SECRET", "test-only-secret-do-not-use-in-production")
 os.environ["ACCESS_TOKEN_MINUTES"] = os.environ.get("ACCESS_TOKEN_MINUTES", "720")
 if "CORS_ORIGINS" not in os.environ:
-    os.environ["CORS_ORIGINS"] = "http://localhost:5173"
+    os.environ["CORS_ORIGINS"] = "http://127.0.0.1:3000,http://localhost:3000"
 
 if _owned_container is not None:
     import logging
