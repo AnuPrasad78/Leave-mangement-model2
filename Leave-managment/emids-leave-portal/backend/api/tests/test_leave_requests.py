@@ -5,6 +5,8 @@ The overlap rules are enforced by a Postgres GIST exclusion constraint
 this API, which is why it gets its own section below.
 """
 
+from datetime import date, timedelta
+
 import pytest
 
 BASE_BODY = {
@@ -103,6 +105,50 @@ def test_end_before_start_rejected(client, employee_factory, leave_types, auth_h
 
     assert response.status_code == 422
     assert response.json()["detail"] == "Invalid leave dates or day count"
+
+
+@pytest.mark.integration
+def test_past_start_date_rejected_even_when_request_ends_in_the_future(
+    client, employee_factory, leave_types, auth_headers
+):
+    employee_factory("past.leave@emids.com")
+    headers = auth_headers("past.leave@emids.com")
+    yesterday = date.today() - timedelta(days=1)
+    tomorrow = date.today() + timedelta(days=1)
+
+    response = apply(
+        client,
+        headers,
+        **{"from": yesterday.isoformat(), "to": tomorrow.isoformat(), "days": 2},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Leave cannot be applied for in the past."
+
+
+@pytest.mark.integration
+def test_update_rejects_a_past_start_date(client, employee_factory, leave_types, auth_headers):
+    employee_factory("edit.past.leave@emids.com")
+    headers = auth_headers("edit.past.leave@emids.com")
+    request_no = apply(client, headers).json()["requestNo"]
+    yesterday = date.today() - timedelta(days=1)
+    tomorrow = date.today() + timedelta(days=1)
+
+    response = client.put(
+        f"/leave-requests/{request_no}",
+        headers=headers,
+        json={
+            "type": "Paid Time Off",
+            "from": yesterday.isoformat(),
+            "to": tomorrow.isoformat(),
+            "days": 2,
+            "mode": "Full Day",
+            "reason": "Family wedding",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Leave cannot be applied for in the past."
 
 
 @pytest.mark.integration

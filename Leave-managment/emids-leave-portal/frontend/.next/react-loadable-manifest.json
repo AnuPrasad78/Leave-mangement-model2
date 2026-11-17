@@ -1,16 +1,4 @@
 {
-  "app\\(admin)\\admin\\page.tsx -> ./AdminDashboard": {
-    "id": "app\\(admin)\\admin\\page.tsx -> ./AdminDashboard",
-    "files": [
-      "static/chunks/_app-pages-browser_app_admin_admin_AdminDashboard_tsx.js"
-    ]
-  },
-  "app\\(portal)\\dashboard\\page.tsx -> ./Dashboard": {
-    "id": "app\\(portal)\\dashboard\\page.tsx -> ./Dashboard",
-    "files": [
-      "static/chunks/_app-pages-browser_app_portal_dashboard_Dashboard_tsx.js"
-    ]
-  },
   "app\\login\\page.tsx -> ./Login": {
     "id": "app\\login\\page.tsx -> ./Login",
     "files": [

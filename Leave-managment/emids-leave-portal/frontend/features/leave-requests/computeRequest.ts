@@ -52,10 +52,14 @@ export function validateRequest({
   excludeRequestId?: string
 }): RequestValidationErrors {
   const errs: RequestValidationErrors = {}
+  const today = todayISO()
   if (!type) errs.type = 'Select a leave type.'
   if (!from) errs.from = 'Pick a from date.'
   if (!to) errs.to = 'Pick a to date.'
   if (from && to && to < from) errs.to = 'End date is before the start date.'
+  if (from && from < today && !isOptionalHolidayType(type)) {
+    errs.from = 'Leave cannot be applied for in the past.'
+  }
   if (reason.trim().length < 5) errs.reason = 'Tell the approver why, in a line or two.'
   if (!errs.type && !errs.from && !errs.to && isOptionalHolidayType(type)) {
     if (from !== to) {
@@ -64,7 +68,7 @@ export function validateRequest({
       errs.from = 'Optional holiday dates are still loading — try again in a moment.'
     } else if (!optionalHolidays.has(from)) {
       errs.from = 'This date is not a configured optional holiday. Pick one from the calendar.'
-    } else if (from < todayISO()) {
+    } else if (from < today) {
       errs.from = 'Optional holidays cannot be applied for in the past.'
     } else if (optionalAllowance != null) {
       const year = Number(from.slice(0, 4))

@@ -2,6 +2,7 @@ import type { LeaveRequestRow } from '@/types/models'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockLink } from '@tests/unit/mocks/nextNavigation'
+import { todayISO } from '@/utils/dates'
 import { AuthContext, type AuthContextValue } from '@/store/AuthContext'
 
 vi.mock('next/link', () => ({ default: mockLink }))
@@ -11,6 +12,18 @@ const row = (id: string, status: string, extra: object = {}): LeaveRequestRow =>
   id, mode: 'Full Day', type: 'Paid Time Off', from: '2026-03-02', to: '2026-03-06', days: 5,
   reason: 'Family trip', requestedOn: '2026-02-20', status: status as never, ...extra,
 })
+
+function futureWeekdayRange(): { from: string; to: string } {
+  const date = new Date(`${todayISO()}T00:00:00`)
+  date.setDate(date.getDate() + 1)
+  while (date.getDay() === 0 || date.getDay() === 6) date.setDate(date.getDate() + 1)
+  const format = (value: Date) =>
+    `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+  const from = format(date)
+  date.setDate(date.getDate() + 1)
+  while (date.getDay() === 0 || date.getDay() === 6) date.setDate(date.getDate() + 1)
+  return { from, to: format(date) }
+}
 
 function setup({ mine, cancelMine = vi.fn(async () => {}) }: { mine?: LeaveRequestRow[]; cancelMine?: () => Promise<void> } = {}) {
   render(
@@ -59,10 +72,11 @@ describe('app/(portal)/leave-details/LeaveDetails', () => {
   it('opens the selected pending request and submits edited values', async () => {
     const user = userEvent.setup()
     const updateMine = vi.fn(async () => true)
+    const dates = futureWeekdayRange()
     render(
       <AuthContext.Provider
         value={{
-            mine: [row('LV-1', 'Pending')],
+            mine: [row('LV-1', 'Pending', dates)],
             cancelMine: vi.fn(async () => {}),
             updateMine,
             leaveTypes: ['Paid Time Off'],
@@ -76,15 +90,15 @@ describe('app/(portal)/leave-details/LeaveDetails', () => {
     )
 
     await user.click(screen.getByRole('button', { name: 'Edit request LV-1' }))
-    expect(screen.getByLabelText(/From Date/)).toHaveValue('2026-03-02')
+    expect(screen.getByLabelText(/From Date/)).toHaveValue(dates.from)
     await user.clear(screen.getByLabelText(/Reason/))
     await user.type(screen.getByLabelText(/Reason/), 'Updated family trip')
     await user.click(screen.getByRole('button', { name: 'Save Changes' }))
 
     await waitFor(() =>
       expect(updateMine).toHaveBeenCalledWith('LV-1', expect.objectContaining({
-        from: '2026-03-02',
-        to: '2026-03-06',
+        from: dates.from,
+        to: dates.to,
         reason: 'Updated family trip',
       }))
     )

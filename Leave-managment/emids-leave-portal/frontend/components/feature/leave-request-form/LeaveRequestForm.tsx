@@ -33,25 +33,29 @@ export default function LeaveRequestForm({ leaveTypes, balances, optionalHoliday
   const [type, setType] = useState(editRequest?.type ?? 'Paid Time Off')
   const [from, setFrom] = useState(editRequest?.from ?? '')
   const [to, setTo] = useState(editRequest?.to ?? '')
+  const [optionalHolidayDate, setOptionalHolidayDate] = useState(
+    editRequest && isOptionalHolidayType(editRequest.type) ? editRequest.from : ''
+  )
   const [mode, setMode] = useState<LeaveMode>(editRequest?.mode ?? MODES.Full)
   const [reason, setReason] = useState(editRequest?.reason ?? '')
   const [errors, setErrors] = useState<RequestValidationErrors>({})
 
   const isOptionalHoliday = isOptionalHolidayType(type)
+  const requestFrom = isOptionalHoliday ? optionalHolidayDate : from
+  const requestTo = isOptionalHoliday ? optionalHolidayDate : to
+  const today = todayISO()
 
   const pickType = (t: string) => {
     setType(t)
-    // Optional holidays are single full days; collapse any stale range and
-    // drop half-day modes so the calendar drives one-date selection.
+    // Optional holidays are single full days and don't allow half-day modes.
     if (isOptionalHolidayType(t)) {
       setMode(MODES.Full)
-      if (from) setTo(from)
     }
   }
 
   const days = useMemo(
-    () => computeRequestDays({ from, to, mode, isOptionalHoliday }),
-    [from, to, mode, isOptionalHoliday]
+    () => computeRequestDays({ from: requestFrom, to: requestTo, mode, isOptionalHoliday }),
+    [requestFrom, requestTo, mode, isOptionalHoliday]
   )
 
   // Optional holidays live on their own allowance, never on a balance row —
@@ -61,7 +65,7 @@ export default function LeaveRequestForm({ leaveTypes, balances, optionalHoliday
 
   // The optional allowance line tracks the year of the selection (today's year
   // until a date is picked); editing a request never counts it against itself.
-  const allowanceYear = from ? Number(from.slice(0, 4)) : Number(todayISO().slice(0, 4))
+  const allowanceYear = requestFrom ? Number(requestFrom.slice(0, 4)) : Number(todayISO().slice(0, 4))
   const remainingOptional = useMemo(
     () => remainingOptionalHolidays(mine ?? [], allowanceYear, optionalAllowance ?? null, editRequest?.id),
     [mine, allowanceYear, optionalAllowance, editRequest]
@@ -84,8 +88,8 @@ export default function LeaveRequestForm({ leaveTypes, balances, optionalHoliday
     e.preventDefault()
     const errs = validateRequest({
       type,
-      from,
-      to,
+      from: requestFrom,
+      to: requestTo,
       reason,
       optionalHolidays: optionalHolidays ?? undefined,
       mine,
@@ -98,13 +102,13 @@ export default function LeaveRequestForm({ leaveTypes, balances, optionalHoliday
     try {
       if (editRequest) {
         if (!updateMine) throw new Error('Request editing is unavailable. Please try again.')
-        const updated = await updateMine(editRequest.id, { type, from, to, days, mode, reason: reason.trim() })
+        const updated = await updateMine(editRequest.id, { type, from: requestFrom, to: requestTo, days, mode, reason: reason.trim() })
         if (!updated) return
         onSubmitted(`${type} request updated · ${days} day(s)`)
         return
       }
       if (!addMine) throw new Error('Request submission is unavailable. Please try again.')
-      const id = await addMine({ type, from, to, days, mode, reason: reason.trim(), requestedOn: todayISO() })
+      const id = await addMine({ type, from: requestFrom, to: requestTo, days, mode, reason: reason.trim(), requestedOn: todayISO() })
       if (!id) return
       onSubmitted(`${type} request submitted · ${days} day(s)`)
     } catch (error) {
@@ -145,11 +149,8 @@ export default function LeaveRequestForm({ leaveTypes, balances, optionalHoliday
               {optionalHolidays ? (
                 <OptionalHolidayCalendar
                   options={optionalHolidays}
-                  selected={from}
-                  onSelect={(d) => {
-                    setFrom(d)
-                    setTo(d)
-                  }}
+                  selected={optionalHolidayDate}
+                  onSelect={setOptionalHolidayDate}
                 />
               ) : (
                 <span className="opt-calendar__loading">Loading the configured optional holidays…</span>
@@ -163,6 +164,7 @@ export default function LeaveRequestForm({ leaveTypes, balances, optionalHoliday
                   className="input"
                   type="date"
                   value={from}
+                  min={today}
                   onChange={(e) => setFrom(e.target.value)}
                 />
               </Field>
@@ -172,7 +174,7 @@ export default function LeaveRequestForm({ leaveTypes, balances, optionalHoliday
                   className="input"
                   type="date"
                   value={to}
-                  min={from || undefined}
+                  min={from && from > today ? from : today}
                   onChange={(e) => setTo(e.target.value)}
                 />
               </Field>

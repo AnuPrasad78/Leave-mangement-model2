@@ -196,6 +196,14 @@ def request_rows_query(session: Session, stmt) -> list[dict]:
 _CONSUMED_STATUSES = (LeaveStatus.PENDING, LeaveStatus.APPROVED)
 
 
+def _validate_request_not_in_past(leave_type: LeaveType, from_date: date) -> None:
+    if not is_optional_holiday_type(leave_type.name) and from_date < date.today():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Leave cannot be applied for in the past.",
+        )
+
+
 def _validate_optional_holiday_request(
     session: Session,
     employee_id: str,
@@ -284,6 +292,7 @@ def create_leave_request(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid leave dates or day count")
     if payload.mode != LeaveMode.FULL_DAY and (payload.from_date != payload.to_date or payload.days != Decimal("0.5")):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Half-day requests must be a single 0.5-day date")
+    _validate_request_not_in_past(leave_type, payload.from_date)
     _validate_optional_holiday_request(
         session, employee.id, leave_type, payload.from_date, payload.to_date, payload.mode, payload.days
     )
@@ -381,6 +390,7 @@ def update_leave_request(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Half-day requests must be a single 0.5-day date",
         )
+    _validate_request_not_in_past(leave_type, payload.from_date)
     _validate_optional_holiday_request(
         session, employee.id, leave_type,
         payload.from_date, payload.to_date, payload.mode, payload.days,

@@ -16,6 +16,7 @@ export function useOptionalHolidayAllowance(
     let alive = true
     void (async () => {
       const { row, error } = await fetchMyLeavePolicy()
+      console.log('useOptionalHolidayAllowance: fetchMyLeavePolicy', { row, error })
       if (!alive) return
       if (error) {
         setToast(error.userMessage, TOAST_KIND.Error)

@@ -13,6 +13,18 @@ const balances: BalanceSummary = {
   rows: [{ key: 'available', label: 'Available', value: 15, max: 18 }],
 }
 
+function futureWeekdayRange(offsetDays = 1): { from: string; to: string } {
+  const date = new Date(`${todayISO()}T00:00:00`)
+  date.setDate(date.getDate() + offsetDays)
+  while (date.getDay() === 0 || date.getDay() === 6) date.setDate(date.getDate() + 1)
+  const format = (value: Date) =>
+    `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+  const from = format(date)
+  date.setDate(date.getDate() + 1)
+  while (date.getDay() === 0 || date.getDay() === 6) date.setDate(date.getDate() + 1)
+  return { from, to: format(date) }
+}
+
 function setup({ addMine = vi.fn(async () => 'LV-100'), balances: b = balances, onError = vi.fn() }: { addMine?: (input: LeaveRequestInput) => Promise<string | null>; balances?: BalanceSummary; onError?: (message: string) => void } = {}) {
   const onSubmitted = vi.fn()
   const onCancel = vi.fn()
@@ -36,10 +48,32 @@ describe('components/feature/LeaveRequestForm', () => {
     for (const t of leaveTypes) expect(screen.getByRole('button', { name: t })).toBeInTheDocument()
     expect(screen.getByLabelText(/From Date/)).toBeInTheDocument()
     expect(screen.getByLabelText(/To Date/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/From Date/)).toHaveAttribute('min', todayISO())
+    expect(screen.getByLabelText(/To Date/)).toHaveAttribute('min', todayISO())
     expect(screen.getByRole('group', { name: 'Day mode' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Reason/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Submit Request' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+  })
+
+  it('does not use a PTO date as the optional-holiday selection', () => {
+    const { from } = futureWeekdayRange()
+    render(
+      <LeaveRequestForm
+        leaveTypes={optionalLeaveTypes}
+        balances={balances}
+        optionalHolidays={new Map([[from, 'Festival']])}
+        optionalAllowance={2}
+        onSubmitted={vi.fn()}
+        onCancel={vi.fn()}
+        onError={vi.fn()}
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText(/From Date/), { target: { value: from } })
+    fireEvent.click(screen.getByRole('button', { name: 'Optional Holiday' }))
+
+    expect(screen.getByRole('button', { name: `${from} — Festival` })).not.toHaveClass('opt-calendar__day--selected')
   })
 
   it('surfaces the validation rules on submit', async () => {
@@ -64,17 +98,18 @@ describe('components/feature/LeaveRequestForm', () => {
     const user = userEvent.setup()
     const addMine = vi.fn(async () => 'LV-100')
     const { onSubmitted } = setup({ addMine })
+    const { from, to } = futureWeekdayRange()
 
-    fireEvent.change(screen.getByLabelText(/From Date/), { target: { value: '2026-10-12' } })
-    fireEvent.change(screen.getByLabelText(/To Date/), { target: { value: '2026-10-13' } })
+    fireEvent.change(screen.getByLabelText(/From Date/), { target: { value: from } })
+    fireEvent.change(screen.getByLabelText(/To Date/), { target: { value: to } })
     await user.type(screen.getByLabelText(/Reason/), 'Cousin wedding out of town')
     await user.click(screen.getByRole('button', { name: 'Submit Request' }))
 
     expect(addMine).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'Paid Time Off',
-        from: '2026-10-12',
-        to: '2026-10-13',
+        from,
+        to,
         days: 2,
         mode: MODES.Full,
         reason: 'Cousin wedding out of town',
@@ -89,9 +124,10 @@ describe('components/feature/LeaveRequestForm', () => {
   it('publishes nothing when the mutation fails', async () => {
     const user = userEvent.setup()
     const onSubmitted = setup({ addMine: vi.fn(async () => null) }).onSubmitted
+    const { from, to } = futureWeekdayRange()
 
-    fireEvent.change(screen.getByLabelText(/From Date/), { target: { value: '2026-10-12' } })
-    fireEvent.change(screen.getByLabelText(/To Date/), { target: { value: '2026-10-13' } })
+    fireEvent.change(screen.getByLabelText(/From Date/), { target: { value: from } })
+    fireEvent.change(screen.getByLabelText(/To Date/), { target: { value: to } })
     await user.type(screen.getByLabelText(/Reason/), 'Cousin wedding out of town')
     await user.click(screen.getByRole('button', { name: 'Submit Request' }))
 
@@ -101,11 +137,13 @@ describe('components/feature/LeaveRequestForm', () => {
 
   it('prepopulates and updates an existing request without changing its submission date', async () => {
     const user = userEvent.setup()
+    const requestDates = futureWeekdayRange()
+    const updatedDates = futureWeekdayRange(8)
     const request: LeaveRequestRow = {
       id: 'LV-1',
       type: 'Paid Time Off',
-      from: '2026-10-12',
-      to: '2026-10-13',
+      from: requestDates.from,
+      to: requestDates.to,
       days: 2,
       mode: MODES.Full,
       reason: 'Original reason',
@@ -127,22 +165,40 @@ describe('components/feature/LeaveRequestForm', () => {
       />
     )
 
-    expect(screen.getByLabelText(/From Date/)).toHaveValue('2026-10-12')
-    expect(screen.getByLabelText(/To Date/)).toHaveValue('2026-10-13')
+    expect(screen.getByLabelText(/From Date/)).toHaveValue(requestDates.from)
+    expect(screen.getByLabelText(/To Date/)).toHaveValue(requestDates.to)
     expect(screen.getByLabelText(/Reason/)).toHaveValue('Original reason')
-    fireEvent.change(screen.getByLabelText(/From Date/), { target: { value: '2026-10-14' } })
-    fireEvent.change(screen.getByLabelText(/To Date/), { target: { value: '2026-10-15' } })
+    fireEvent.change(screen.getByLabelText(/From Date/), { target: { value: updatedDates.from } })
+    fireEvent.change(screen.getByLabelText(/To Date/), { target: { value: updatedDates.to } })
     await user.click(screen.getByRole('button', { name: 'Save Changes' }))
 
     expect(updateMine).toHaveBeenCalledWith('LV-1', {
       type: 'Paid Time Off',
-      from: '2026-10-14',
-      to: '2026-10-15',
+      from: updatedDates.from,
+      to: updatedDates.to,
       days: 2,
       mode: MODES.Full,
       reason: 'Original reason',
     })
     expect(onSubmitted).toHaveBeenCalledWith(expect.stringContaining('updated'))
+  })
+
+  it('prevents submission when a request starts in the past', async () => {
+    const user = userEvent.setup()
+    const addMine = vi.fn(async () => 'LV-100')
+    setup({ addMine })
+    const yesterday = new Date(`${todayISO()}T00:00:00`)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const past = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
+    const { to } = futureWeekdayRange()
+
+    fireEvent.change(screen.getByLabelText(/From Date/), { target: { value: past } })
+    fireEvent.change(screen.getByLabelText(/To Date/), { target: { value: to } })
+    await user.type(screen.getByLabelText(/Reason/), 'Family function')
+    await user.click(screen.getByRole('button', { name: 'Submit Request' }))
+
+    expect(screen.getByText('Leave cannot be applied for in the past.')).toBeInTheDocument()
+    expect(addMine).not.toHaveBeenCalled()
   })
 })
 

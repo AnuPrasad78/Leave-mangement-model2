@@ -17,8 +17,18 @@
     },
     {
       "name": "leave-portal-docker",
-      "port": 5173,
-      "url": "http://localhost:5173"
+      "runtimeExecutable": "docker",
+      "runtimeArgs": [
+        "compose",
+        "-f",
+        "backend/compose.yaml",
+        "up",
+        "-d",
+        "db",
+        "api",
+        "frontend"
+      ],
+      "port": 3000
     }
   ]
 }

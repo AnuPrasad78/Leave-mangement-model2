@@ -1,5 +1,12 @@
 import { computeRequestDays, validateRequest } from '@/features/leave-requests/computeRequest'
 import { MODES } from '@/constants'
+import { todayISO } from '@/utils/dates'
+
+function shiftISO(days: number): string {
+  const date = new Date(`${todayISO()}T00:00:00`)
+  date.setDate(date.getDate() + days)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
 
 describe('features/leave-requests/computeRequestDays', () => {
   it('counts business days inclusively for full-day mode', () => {
@@ -24,10 +31,16 @@ describe('features/leave-requests/computeRequestDays', () => {
 })
 
 describe('features/leave-requests/validateRequest', () => {
-  const valid = { type: 'Paid Time Off', from: '2026-10-12', to: '2026-10-14', reason: 'Family function' }
+  const valid = { type: 'Paid Time Off', from: todayISO(), to: shiftISO(1), reason: 'Family function' }
 
   it('accepts a fully filled request with no errors', () => {
     expect(validateRequest(valid)).toEqual({})
+  })
+
+  it('rejects a request whose start date is in the past', () => {
+    expect(validateRequest({ ...valid, from: shiftISO(-1) }).from).toBe(
+      'Leave cannot be applied for in the past.'
+    )
   })
 
   it('reports the pinned field rules with the exact legacy wording', () => {
