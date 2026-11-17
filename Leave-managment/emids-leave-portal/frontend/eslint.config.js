@@ -7,9 +7,9 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default [
-  { ignores: ['dist/', 'node_modules/', 'test-results/', 'playwright-report/', 'tests/.visual-*/'] },
+  { ignores: ['dist/', 'node_modules/', 'test-results/', 'playwright-report/', 'tests/.visual-*/', '.next/'] },
   js.configs.recommended,
-  { ...react.configs['flat'].recommended, settings: { react: { version: '18.3.1' } } },
+  { ...react.configs['flat'].recommended, settings: { react: { version: 'detect' } } },
   jsxA11y.flatConfigs.recommended,
   ...tseslint.configs.recommended,
   {

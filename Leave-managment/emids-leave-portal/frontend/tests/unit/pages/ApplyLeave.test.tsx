@@ -1,8 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import ApplyLeave from '../../../src/pages/ApplyLeave'
+import { navMocks } from '../router-mocks'
+vi.mock('next/navigation', () => navMocks())
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import ApplyLeave from '../../../app/(employee)/apply-leave/_components/ApplyLeaveTemplate'
 
 const leaveTypes = ['Paid Time Off', 'Work From Home']
 const balances = { totalCredited: 20, utilized: 5, rows: [{ key: 'available', label: 'Available', value: 15, max: 18 }] }
@@ -10,18 +11,16 @@ const balances = { totalCredited: 20, utilized: 5, rows: [{ key: 'available', la
 function setup({ addMine = vi.fn(async () => 'LV-100'), balances: b = balances, leaveTypes: types = leaveTypes } = {}) {
   const setToast = vi.fn()
   render(
-    <MemoryRouter initialEntries={['/apply-leave']}>
-      <AuthContext.Provider value={{ setToast, addMine, leaveTypes: types, balances: b } as unknown as AuthContextValue}>
-        <Routes>
-          <Route path='/apply-leave' element={<ApplyLeave />} />
-          <Route path='/dashboard' element={<div>dashboard-here</div>} />
-          <Route path='/leave-details' element={<div>leave-details-here</div>} />
-        </Routes>
-      </AuthContext.Provider>
-    </MemoryRouter>
+    <AuthContext.Provider value={{ setToast, addMine, leaveTypes: types, balances: b } as unknown as AuthContextValue}>
+      <ApplyLeave />
+    </AuthContext.Provider>
   )
   return setToast
 }
+
+beforeEach(() => {
+  navMocks.clear()
+})
 
 describe('pages/ApplyLeave', () => {
   it('renders the page head and the form with leave-type chips', () => {
@@ -37,7 +36,7 @@ describe('pages/ApplyLeave', () => {
     const user = userEvent.setup()
     setup()
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.getByText('dashboard-here')).toBeInTheDocument()
+    navMocks.expectPush('/dashboard')
   })
 
   it('toasts the confirmation and routes to My Requests after a submitted request', async () => {
@@ -48,7 +47,7 @@ describe('pages/ApplyLeave', () => {
     await user.type(screen.getByLabelText(/Reason/), 'Cousin wedding out of town')
     await user.click(screen.getByRole('button', { name: 'Submit Request' }))
 
-    await waitFor(() => expect(screen.getByText('leave-details-here')).toBeInTheDocument())
+    await waitFor(() => navMocks.expectPush('/leave-details'))
     await waitFor(() => expect(setToast.mock.calls.at(-1)![0]).toBe('Paid Time Off request submitted · 2 day(s)'))
   })
 
@@ -65,7 +64,7 @@ describe('pages/ApplyLeave', () => {
     await user.click(screen.getByRole('button', { name: 'Submit Request' }))
 
     await waitFor(() => expect(setToast).toHaveBeenCalledWith('Unknown or inactive leave type', 'red'))
-    expect(screen.queryByText('leave-details-here')).toBeNull()
+    expect(navMocks.pushTargets()).not.toContain('/leave-details')
   })
 
   it('disables the Overdrawn-balance CTA by not rendering a submit path (overdrawn blocks new asks)', () => {

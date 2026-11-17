@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { StatusPill } from '../../../../src/components/ui'
+import { StatusPill } from '../../../../app/components/index'
 
 describe('ui/StatusPill', () => {
   it.each([

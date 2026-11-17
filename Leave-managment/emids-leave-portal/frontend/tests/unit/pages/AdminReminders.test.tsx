@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/admin', () => ({
+vi.mock('../../../services/admin', () => ({
   adminSendNudge: vi.fn(),
   fetchAdminEmployees: vi.fn(),
   fetchOrgRequests: vi.fn(),
@@ -10,10 +10,10 @@ vi.mock('../../../src/services/admin', () => ({
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import AdminReminders from '../../../src/pages/AdminReminders'
-import { adminSendNudge, fetchAdminEmployees, fetchOrgRequests, fetchPendingRequestsPage, fetchStaleRequests } from '../../../src/services/admin'
-import type { EmployeeAdminRow, LeaveRequestSelectRow, Paginated, StaleRequestRow } from '../../../src/types/models'
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import AdminReminders from '../../../app/(admin)/admin/reminders/_components/RemindersTemplate'
+import { adminSendNudge, fetchAdminEmployees, fetchOrgRequests, fetchPendingRequestsPage, fetchStaleRequests } from '../../../services/admin'
+import type { EmployeeAdminRow, LeaveRequestSelectRow, Paginated, StaleRequestRow } from '../../../types/models'
 
 const person = (overrides: Partial<EmployeeAdminRow> = {}): EmployeeAdminRow => ({
   id: 'e1',

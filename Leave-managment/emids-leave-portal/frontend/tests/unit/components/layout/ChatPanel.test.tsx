@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import ChatPanel from '../../../../src/components/layout/ChatPanel'
-import type { EmployeeProfileRow } from '../../../../src/types/models'
+import ChatPanel from '../../../../app/components/organisms/ChatPanel'
+import type { EmployeeProfileRow } from '../../../../types/models'
 
 function renderPanel({ onDismiss = () => {}, profile }: { onDismiss?: () => void; profile?: EmployeeProfileRow | null } = {}) {
   return render(<ChatPanel profile={profile ?? null} onDismiss={onDismiss} />)

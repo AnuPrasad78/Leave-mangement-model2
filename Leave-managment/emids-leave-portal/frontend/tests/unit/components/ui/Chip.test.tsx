@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Chip } from '../../../../src/components/ui'
+import { Chip } from '../../../../app/components/index'
 
 describe('ui/Chip', () => {
   it('toggles the is-on class and pressed state', () => {

@@ -1,5 +1,5 @@
 import { vi, describe, it, expect } from 'vitest'
-import { withQueryRetry, isTransientQueryFailure } from '../../../src/services/retry'
+import { withQueryRetry, isTransientQueryFailure } from '../../../services/retry'
 
 describe('services/retry', () => {
   describe('withQueryRetry', () => {

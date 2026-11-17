@@ -29,6 +29,42 @@ app.add_middleware(
 app.include_router(router)
 
 
+from urllib.parse import urlsplit
+
+from fastapi.responses import JSONResponse
+
+from app.security import SESSION_COOKIE_NAME
+
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_ALLOWED_ORIGINS = {
+    origin.strip().rstrip('/')
+    for origin in settings.CORS_ORIGINS.split(',')
+    if origin.strip()
+}
+
+
+def _origin_allowed(origin: str) -> bool:
+    parts = urlsplit(origin)
+    actual = f"{parts.scheme}://{parts.netloc}".lower()
+    return actual in _ALLOWED_ORIGINS
+
+
+@app.middleware("http")
+async def csrf_origin_guard(request, call_next):
+    """CSRF guard for cookie-authenticated state-changing requests.
+
+    Browsers always attach an Origin header to unsafe-method fetches; when the
+    session cookie rides along, that origin must be one of the configured
+    frontend origins. Requests that authenticate via the Authorization header
+    instead of the cookie (programmatic clients) are exempt — cookie-based CSRF
+    does not apply to them."""
+    if request.method in _UNSAFE_METHODS and SESSION_COOKIE_NAME in request.cookies:
+        origin = request.headers.get("origin")
+        if origin is None or not _origin_allowed(origin):
+            return JSONResponse(status_code=403, content={"detail": "Cross-site state changes are not permitted"})
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def add_trace_id(request, call_next):
     response = await call_next(request)

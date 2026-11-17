@@ -346,11 +346,21 @@ def make_holiday(session):
 
 @pytest.fixture
 def auth_headers(client):
-    """Returns a function: auth_headers(email) -> Authorization headers."""
+    """Returns a function: auth_headers(email) -> Authorization headers.
+
+    The login endpoint no longer returns the JWT in its response body; it sets
+    an HttpOnly session cookie instead. The fixture keeps requests per-user by
+    building an Authorization header from that cookie's value (get_current_user
+    validates both with the identical path) and clearing any cookie the TestClient
+    jar picked up so a later login does not leak into an earlier one."""
 
     def _headers(email: str, password: str = DEFAULT_PASSWORD) -> dict[str, str]:
         response = client.post("/auth/login", json={"email": email, "password": password})
         assert response.status_code == 200, response.text
-        return {"Authorization": f"Bearer {response.json()['access_token']}"}
+        token = response.cookies.get("leave_portal_session", domain="testserver") or response.cookies.get("leave_portal_session")
+        assert token, "login must set the session cookie"
+        if "leave_portal_session" in client.cookies:
+            client.cookies.delete("leave_portal_session")
+        return {"Authorization": f"Bearer {token}"}
 
     return _headers

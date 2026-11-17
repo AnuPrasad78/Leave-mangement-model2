@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { IconButton } from '../../../../src/components/ui'
+import { IconButton } from '../../../../app/components/index'
 
 describe('ui/IconButton', () => {
   it('renders the icon-btn class with matching aria-label', () => {

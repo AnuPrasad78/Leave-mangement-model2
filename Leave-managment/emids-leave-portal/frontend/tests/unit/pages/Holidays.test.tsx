@@ -1,8 +1,8 @@
-import type { EmployeeProfileRow } from '../../../src/types/models'
+import type { EmployeeProfileRow } from '../../../types/models'
 import { render, screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/holidays', () => ({
+vi.mock('../../../services/holidays', () => ({
   fetchAllHolidays: vi.fn(),
   fetchOptionalPicks: vi.fn(),
   addOptionalPick: vi.fn(),
@@ -10,9 +10,9 @@ vi.mock('../../../src/services/holidays', () => ({
   isPickCapError: vi.fn(),
 }))
 
-import { fetchAllHolidays, fetchOptionalPicks } from '../../../src/services/holidays'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import Holidays from '../../../src/pages/Holidays'
+import { fetchAllHolidays, fetchOptionalPicks } from '../../../services/holidays'
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import Holidays from '../../../app/(employee)/holidays/_components/HolidaysTemplate'
 
 // Effects run on mount, so every test pins the mock behavior BEFORE rendering.
 function setup({ profile = null, behavior = () => new Promise(() => {}) }: { profile?: EmployeeProfileRow | null; behavior?: () => Promise<unknown> } = {}) {

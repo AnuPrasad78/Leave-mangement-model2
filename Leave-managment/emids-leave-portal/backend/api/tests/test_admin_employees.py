@@ -8,6 +8,22 @@ from sqlalchemy import select
 from app.leave_policy import ANNUAL_DAYS_PER_YEAR, CONTINGENCY_DAYS_PER_YEAR, prorated_annual
 from app.models import LeaveRequest
 
+# conftest's default CORS_ORIGINS entry — a browser-emulated Origin so the
+# CSRF origin guard accepts cookie-bearing POSTs.
+BROWSER_ORIGIN = {"Origin": "http://localhost:5173"}
+
+
+def _bearer_from_login(client, email: str, password: str) -> dict[str, str]:
+    """Log in and turn the Set-Cookie session into an Authorization header,
+    clearing the TestClient jar so the cookie cannot overshadow the header."""
+    response = client.post("/auth/login", json={"email": email, "password": password})
+    assert response.status_code == 200, response.text
+    token = response.cookies.get("leave_portal_session")
+    assert token, "login must set the session cookie"
+    if "leave_portal_session" in client.cookies:
+        client.cookies.delete("leave_portal_session")
+    return {"Authorization": f"Bearer {token}"}
+
 
 @pytest.mark.integration
 def test_admin_creates_employee_with_generated_password(client, admin_factory, auth_headers):
@@ -75,13 +91,7 @@ def test_create_credits_the_current_years_balance(client, admin_factory, auth_he
     )
     assert response.status_code == 201, response.text
     temp_password = response.json()["temporary_password"]
-    headers = {
-        "Authorization": "Bearer "
-        + client.post(
-            "/auth/login",
-            json={"email": email, "password": temp_password},
-        ).json()["access_token"],
-    }
+    headers = _bearer_from_login(client, email, temp_password)
 
     body = client.get("/balances/me", headers=headers).json()
     assert body["year"] == this_year
@@ -104,13 +114,7 @@ def test_create_credits_full_year_for_doj_in_a_previous_year(client, admin_facto
     )
     assert response.status_code == 201
     temp_password = response.json()["temporary_password"]
-    headers = {
-        "Authorization": "Bearer "
-        + client.post(
-            "/auth/login",
-            json={"email": email, "password": temp_password},
-        ).json()["access_token"],
-    }
+    headers = _bearer_from_login(client, email, temp_password)
     assert float(client.get("/balances/me", headers=headers).json()["annual_credited"]) == 22.0
 
 
@@ -223,11 +227,18 @@ def test_update_email_syncs_the_login_user(client, admin_factory, employee_facto
     )
     assert response.status_code == 200
     assert response.json()["email"] == "mailsync.renamed@emids.com"
+    # A browser POST always carries an Origin header; the first login leaves its
+    # session cookie in the client's cookie jar, so the second attempt rides
+    # along with it — allowed origin → the login itself answers 401.
     assert client.post(
-        "/auth/login", json={"email": "mailsync.renamed@emids.com", "password": "TestPassword123!"}
+        "/auth/login",
+        json={"email": "mailsync.renamed@emids.com", "password": "TestPassword123!"},
+        headers=BROWSER_ORIGIN,
     ).status_code == 200
     assert client.post(
-        "/auth/login", json={"email": "mailsync.emp@emids.com", "password": "TestPassword123!"}
+        "/auth/login",
+        json={"email": "mailsync.emp@emids.com", "password": "TestPassword123!"},
+        headers=BROWSER_ORIGIN,
     ).status_code == 401
 
 

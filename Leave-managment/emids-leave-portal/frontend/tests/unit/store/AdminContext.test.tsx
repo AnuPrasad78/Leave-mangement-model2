@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/admin', () => ({
+vi.mock('../../../services/admin', () => ({
   fetchAdminEmployees: vi.fn(),
   adminCreateEmployee: vi.fn(),
   adminUpdateEmployee: vi.fn(),
@@ -10,9 +10,9 @@ vi.mock('../../../src/services/admin', () => ({
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import { AdminContext, AdminProvider, useAdmin } from '../../../src/store/AdminContext'
-import { fetchAdminEmployees } from '../../../src/services/admin'
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import { AdminContext, AdminProvider, useAdmin } from '../../../store/AdminContext'
+import { fetchAdminEmployees } from '../../../services/admin'
 
 function Probe() {
   const { employees, total, loading, setSearch } = useAdmin()

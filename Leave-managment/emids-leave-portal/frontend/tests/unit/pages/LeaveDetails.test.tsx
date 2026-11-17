@@ -1,9 +1,10 @@
-import type { LeaveRequestRow } from '../../../src/types/models'
+import type { LeaveRequestRow } from '../../../types/models'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import LeaveDetails from '../../../src/pages/LeaveDetails'
+import { navMocks } from '../router-mocks'
+vi.mock('next/navigation', () => navMocks())
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import LeaveDetails from '../../../app/(employee)/leave-details/_components/LeaveDetailsTemplate'
 
 const row = (id: string, status: string, extra: object = {}): LeaveRequestRow => ({
   id, mode: 'Full Day', type: 'Paid Time Off', from: '2026-03-02', to: '2026-03-06', days: 5,
@@ -12,11 +13,9 @@ const row = (id: string, status: string, extra: object = {}): LeaveRequestRow =>
 
 function setup({ mine, cancelMine = vi.fn(async () => {}) }: { mine?: LeaveRequestRow[]; cancelMine?: () => Promise<void> } = {}) {
   render(
-    <MemoryRouter>
-      <AuthContext.Provider value={{ mine: mine ?? [], cancelMine, CURRENT_YEAR: 2026 } as unknown as AuthContextValue}>
-        <LeaveDetails />
-      </AuthContext.Provider>
-    </MemoryRouter>
+    <AuthContext.Provider value={{ mine: mine ?? [], cancelMine, CURRENT_YEAR: 2026 } as unknown as AuthContextValue}>
+      <LeaveDetails />
+    </AuthContext.Provider>
   )
   return cancelMine
 }
@@ -60,21 +59,19 @@ describe('pages/LeaveDetails', () => {
     const user = userEvent.setup()
     const updateMine = vi.fn(async () => true)
     render(
-      <MemoryRouter>
-        <AuthContext.Provider
-          value={{
-            mine: [row('LV-1', 'Pending')],
-            cancelMine: vi.fn(async () => {}),
-            updateMine,
-            leaveTypes: ['Paid Time Off'],
-            balances: null,
-            setToast: vi.fn(),
-            CURRENT_YEAR: 2026,
-          } as unknown as AuthContextValue}
-        >
-          <LeaveDetails />
-        </AuthContext.Provider>
-      </MemoryRouter>
+      <AuthContext.Provider
+        value={{
+          mine: [row('LV-1', 'Pending')],
+          cancelMine: vi.fn(async () => {}),
+          updateMine,
+          leaveTypes: ['Paid Time Off'],
+          balances: null,
+          setToast: vi.fn(),
+          CURRENT_YEAR: 2026,
+        } as unknown as AuthContextValue}
+      >
+        <LeaveDetails />
+      </AuthContext.Provider>
     )
 
     await user.click(screen.getByRole('button', { name: 'Edit request LV-1' }))

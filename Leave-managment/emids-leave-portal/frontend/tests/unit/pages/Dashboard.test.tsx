@@ -1,16 +1,17 @@
-import type { BalanceSummary, EmployeeProfileRow } from '../../../src/types/models'
+import type { BalanceSummary, EmployeeProfileRow } from '../../../types/models'
 import { render, screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { navMocks } from '../router-mocks'
+vi.mock('next/navigation', () => navMocks())
 
-vi.mock('../../../src/services/holidays', () => ({
+vi.mock('../../../services/holidays', () => ({
   fetchUpcomingHolidays: vi.fn(),
   fetchOptionalPicks: vi.fn(),
 }))
 
-import { fetchUpcomingHolidays, fetchOptionalPicks } from '../../../src/services/holidays'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import Dashboard from '../../../src/pages/Dashboard'
+import { fetchUpcomingHolidays, fetchOptionalPicks } from '../../../services/holidays'
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import Dashboard from '../../../app/(employee)/dashboard/_components/DashboardTemplate'
 
 const balances = {
   totalCredited: 20,
@@ -23,11 +24,9 @@ function setup({ balances: b = balances, setToast = vi.fn(), upcoming = () => ne
   vi.mocked(fetchUpcomingHolidays).mockImplementation(upcoming as never)
   vi.mocked(fetchOptionalPicks).mockImplementation(picks as never)
   render(
-    <MemoryRouter initialEntries={['/dashboard']}>
-      <AuthContext.Provider value={{ profile: { id: 'e-me', location: 'Bangalore' } as unknown as EmployeeProfileRow, balances: b as unknown as BalanceSummary, setToast } as unknown as AuthContextValue}>
-        <Dashboard />
-      </AuthContext.Provider>
-    </MemoryRouter>
+    <AuthContext.Provider value={{ profile: { id: 'e-me', location: 'Bangalore' } as unknown as EmployeeProfileRow, balances: b as unknown as BalanceSummary, setToast } as unknown as AuthContextValue}>
+      <Dashboard />
+    </AuthContext.Provider>
   )
   return setToast
 }

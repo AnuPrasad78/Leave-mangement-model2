@@ -1,15 +1,15 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 
-vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
+vi.mock('../../../services/apiClient', async () => await import('../mocks/apiClient'))
 
-import { apiRequest, resetApiClientMock, setAccessToken, getAccessToken } from '../mocks/apiClient'
-import { fetchMine, insertMine } from '../../../src/services/leaveRequests'
-import { fetchLatestBalances } from '../../../src/services/balances'
-import { fetchProfileByAuthId, fetchReportIds } from '../../../src/services/employees'
-import { fetchActiveLeaveTypeNames, fetchLeaveTypeIdByName } from '../../../src/services/leaveTypes'
-import { fetchAllHolidays, fetchOptionalPicks, addOptionalPick, removeOptionalPick } from '../../../src/services/holidays'
-import { createSeparationRequest } from '../../../src/services/separations'
-import { signInWithPassword, signOut } from '../../../src/services/auth'
+import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
+import { fetchMine, insertMine } from '../../../services/leaveRequests'
+import { fetchLatestBalances } from '../../../services/balances'
+import { fetchProfileByAuthId, fetchReportIds } from '../../../services/employees'
+import { fetchActiveLeaveTypeNames, fetchLeaveTypeIdByName } from '../../../services/leaveTypes'
+import { fetchAllHolidays, fetchOptionalPicks, addOptionalPick, removeOptionalPick } from '../../../services/holidays'
+import { createSeparationRequest } from '../../../services/separations'
+import { signInWithPassword, signOut } from '../../../services/auth'
 
 // Route every apiRequest call through a throwing path so the service
 // exercises its thrown-transport normalization, not just in-band errors.
@@ -103,12 +103,10 @@ describe('services — thrown transport failures keep the normalized contract', 
     expect(apiRequest).toHaveBeenCalledTimes(1)
   })
 
-  it('signOut reports the transport failure in its contract shape and still clears the token', async () => {
-    setAccessToken('stale-token')
+  it('signOut reports the transport failure in its contract shape', async () => {
     breakTransport(transportThrow)
     const { error } = await signOut()
     expect(error).toMatchObject({ message: 'Failed to fetch' })
     expect(apiRequest).toHaveBeenCalledTimes(1)
-    expect(getAccessToken()).toBeNull()
   })
 })

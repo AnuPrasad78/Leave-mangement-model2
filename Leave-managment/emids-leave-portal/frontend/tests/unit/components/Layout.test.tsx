@@ -1,13 +1,14 @@
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { AuthContext } from '../../../src/store/AuthContext'
-import type { AuthContextValue } from '../../../src/store/AuthContext'
-import type { BalanceSummary, EmployeeProfileRow, TeamRequestRow } from '../../../src/types/models'
-import Layout from '../../../src/components/Layout'
+import { navMocks } from '../router-mocks'
+vi.mock('next/navigation', () => navMocks())
+import { AuthContext } from '../../../store/AuthContext'
+import type { AuthContextValue } from '../../../store/AuthContext'
+import type { BalanceSummary, EmployeeProfileRow, TeamRequestRow } from '../../../types/models'
+import Layout from '../../../app/components/organisms/Layout'
 
-vi.mock('../../../src/services/notifications', () => ({
+vi.mock('../../../services/notifications', () => ({
   fetchMyNotifications: vi.fn().mockResolvedValue({ rows: [], error: null }),
   markAllNotificationsRead: vi.fn().mockResolvedValue(undefined),
 }))
@@ -25,14 +26,9 @@ const balances: BalanceSummary = {
 
 function setup({ profile = staffProfile, team = [], balances: b = balances, signOut = vi.fn(async () => true) }: { profile?: EmployeeProfileRow; team?: TeamRequestRow[]; balances?: BalanceSummary; signOut?: () => Promise<boolean> } = {}) {
   return render(
-    <MemoryRouter initialEntries={['/dashboard']}>
-      <AuthContext.Provider value={{ profile, team, balances: b, signOut } as unknown as AuthContextValue}>
-        <Routes>
-          <Route path='*' element={<Layout><div>page-body</div></Layout>} />
-          <Route path='/login' element={<div>login-here</div>} />
-        </Routes>
-      </AuthContext.Provider>
-    </MemoryRouter>
+    <AuthContext.Provider value={{ profile, team, balances: b, signOut } as unknown as AuthContextValue}>
+      <Layout><div>page-body</div></Layout>
+    </AuthContext.Provider>
   )
 }
 
@@ -40,6 +36,10 @@ function openDrawer() {
   fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
   return document.querySelector('.drawer') as HTMLElement
 }
+
+beforeEach(() => {
+  navMocks.clear()
+})
 
 describe('components/Layout', () => {
   it('renders the pinned header, page body and the drawer nav with six links', () => {
@@ -139,7 +139,7 @@ describe('components/Layout', () => {
     setup({ signOut })
     openDrawer()
     await user.click(screen.getByRole('button', { name: /Log out/ }))
-    expect(screen.getByText('login-here')).toBeInTheDocument()
+    navMocks.expectPush('/login')
   })
 
   it('stays on the page when sign-out fails', async () => {
@@ -148,7 +148,7 @@ describe('components/Layout', () => {
     setup({ signOut })
     openDrawer()
     await user.click(screen.getByRole('button', { name: /Log out/ }))
-    expect(screen.queryByText('login-here')).toBeNull()
+    expect(navMocks.pushTargets()).not.toContain('/login')
   })
 
   it('opens the demo AI assistant via the floating button', async () => {

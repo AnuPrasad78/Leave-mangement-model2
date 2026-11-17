@@ -53,7 +53,9 @@ def test_access_token_has_subject_and_required_expiry():
 # Integration: token validation at the boundary
 # --------------------------------------------------------------------------
 @pytest.mark.integration
-def test_login_returns_bearer_token(client, employee_factory):
+def test_login_sets_the_session_cookie_and_never_returns_the_token(client, employee_factory):
+    """The login body must not contain any printable JWT; the credential is the
+    HttpOnly Set-Cookie (updated contract after the HttpOnly-cookie migration)."""
     employee_factory("ada.lovelace@emids.com")
 
     response = client.post(
@@ -61,9 +63,14 @@ def test_login_returns_bearer_token(client, employee_factory):
     )
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["token_type"] == "bearer"
-    assert body["access_token"]
+    assert response.json() == {"ok": True}
+    set_cookie = next(
+        (value for header, value in response.headers.multi_items() if header == "set-cookie"),
+        None,
+    )
+    assert set_cookie is not None
+    assert set_cookie.startswith("leave_portal_session=")
+    assert "httponly" in set_cookie.lower()
 
 
 @pytest.mark.integration

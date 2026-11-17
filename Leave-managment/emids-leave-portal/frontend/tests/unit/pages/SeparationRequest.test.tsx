@@ -1,25 +1,21 @@
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { navMocks } from '../router-mocks'
+vi.mock('next/navigation', () => navMocks())
 
-vi.mock('../../../src/services/separations', () => ({
+vi.mock('../../../services/separations', () => ({
   createSeparationRequest: vi.fn(),
 }))
 
-import { createSeparationRequest } from '../../../src/services/separations'
-import SeparationRequest from '../../../src/pages/SeparationRequest'
+import { createSeparationRequest } from '../../../services/separations'
+import SeparationRequest from '../../../app/(employee)/separation-request/_components/SeparationRequestTemplate'
 
 function setup({ setToast = vi.fn(), profile = { id: 'e-me' } } = {}) {
   return render(
-    <MemoryRouter initialEntries={['/separation-request']}>
-      <AuthContext.Provider value={{ setToast, profile } as unknown as AuthContextValue}>
-        <Routes>
-          <Route path='/separation-request' element={<SeparationRequest />} />
-          <Route path='/dashboard' element={<div>dashboard-here</div>} />
-        </Routes>
-      </AuthContext.Provider>
-    </MemoryRouter>
+    <AuthContext.Provider value={{ setToast, profile } as unknown as AuthContextValue}>
+      <SeparationRequest />
+    </AuthContext.Provider>
   )
 }
 
@@ -77,6 +73,6 @@ describe('pages/SeparationRequest', () => {
       })
     )
     await waitFor(() => expect(setToast).toHaveBeenCalledWith('Separation request raised · HR notified'))
-    await waitFor(() => expect(screen.getByText('dashboard-here')).toBeInTheDocument())
+    await waitFor(() => navMocks.expectPush('/dashboard'))
   })
 })

@@ -1,16 +1,16 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/admin', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../src/services/admin')>()
+vi.mock('../../../services/admin', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../services/admin')>()
   return { ...actual, fetchAuditLogs: vi.fn() }
 })
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import AdminAuditLogs from '../../../src/pages/AdminAuditLogs'
-import { fetchAuditLogs } from '../../../src/services/admin'
-import type { AuditLogRow, Paginated } from '../../../src/types/models'
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import AdminAuditLogs from '../../../app/(admin)/admin/audit-logs/_components/AuditLogsTemplate'
+import { fetchAuditLogs } from '../../../services/admin'
+import type { AuditLogRow, Paginated } from '../../../types/models'
 
 const row = (overrides: Partial<AuditLogRow> = {}): AuditLogRow => ({
   id: 1,

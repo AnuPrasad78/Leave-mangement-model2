@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
@@ -61,21 +61,27 @@ from app.schemas import (
     TokenOutput,
 
 )
-from app.security import create_access_token, get_current_user, hash_password, require_admin, verify_password
+from app.security import clear_session_cookie, create_access_token, get_current_user, hash_password, require_admin, set_session_cookie, verify_password
 
 router = APIRouter()
 
 
-@router.post("/auth/login", response_model=TokenOutput)
-def login(payload: LoginInput, session: Session = Depends(get_session)) -> TokenOutput:
+@router.post("/auth/login")
+def login(payload: LoginInput, response: Response, session: Session = Depends(get_session)) -> dict[str, bool]:
     user = session.scalar(select(User).where(func.lower(User.email) == payload.email.lower()))
     if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
-    return TokenOutput(access_token=create_access_token(user.id))
+    # The JWT is delivered only as an HttpOnly cookie; it never appears in the
+    # response body where frontend JavaScript could read it.
+    set_session_cookie(response, create_access_token(user.id))
+    return {"ok": True}
 
 
-@router.post("/auth/logout")
-def logout(_: User = Depends(get_current_user)) -> dict[str, bool]:
+@router.post("/auth/logout", response_model=None)
+def logout(response: Response, user: User = Depends(get_current_user)) -> dict[str, bool]:
+    # Signature/expiration still validated via get_current_user; the cookie is
+    # cleared with the same path/domain attributes it was issued with.
+    clear_session_cookie(response)
     return {"ok": True}
 
 

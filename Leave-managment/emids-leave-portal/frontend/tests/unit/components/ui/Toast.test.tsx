@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { AuthContext, type AuthContextValue } from '../../../../src/store/AuthContext'
-import { Toast } from '../../../../src/components/ui'
+import { AuthContext, type AuthContextValue } from '../../../../store/AuthContext'
+import { Toast } from '../../../../app/components/index'
 
 function renderToast(toast: { msg: string; kind: string; id: number } | null) {
   return render(

@@ -23,18 +23,21 @@ const wantRoles = arg('roles', 'manager,staff').split(',').filter(Boolean)
 const PASSWORD = process.env.SEED_PASSWORD || 'Portal@2026'
 const ROLES = Object.fromEntries(
   Object.entries({
-    manager: 'sai.nithinreddy@emids.com',
+    manager: 'prastina.mary@emids.com',
     staff: 'vikram.deshmukh@emids.com',
+    admin: 'admin@emids.com',
   }).filter(([role]) => wantRoles.includes(role))
 )
-const ROUTES = ['/dashboard', '/apply-leave', '/leave-details', '/leave-requests', '/holidays', '/separation-request']
+const PORTAL_ROUTES = ['/dashboard', '/apply-leave', '/leave-details', '/leave-requests', '/holidays', '/separation-request']
+const ADMIN_ROUTES = ['/admin', '/admin/employees', '/admin/leave-policies', '/admin/audit-logs', '/admin/reminders']
+const ROUTES = { manager: PORTAL_ROUTES, staff: PORTAL_ROUTES, admin: ADMIN_ROUTES }
 
 async function ensureServer() {
   try {
     const res = await fetch(`${BASE}/`)
     if (res.ok) return null
   } catch { /* offline */ }
-  const child = spawn('npm', ['run', 'dev', '--', '--port', '5180', '--strictPort'], {
+  const child = spawn('npm', ['run', 'dev', '--', '--port', '5180'], {
     shell: true,
     stdio: 'ignore',
     detached: true,
@@ -54,7 +57,8 @@ async function login(page, email) {
   await page.getByPlaceholder('name@emids.com').fill(email)
   await page.locator('input[type="password"]').fill(PASSWORD)
   await page.getByRole('button', { name: /sign in/i }).click()
-  await page.waitForURL('**/dashboard', { timeout: 20000 })
+  // Employees/managers land on /dashboard, admins on /admin (Login role redirect).
+  await page.waitForURL(/\/(dashboard|admin)$/, { timeout: 20000 })
   await page.waitForLoadState('networkidle')
 }
 
@@ -87,7 +91,7 @@ try {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 })
     const page = await ctx.newPage()
     await login(page, email)
-    for (const route of ROUTES) {
+    for (const route of ROUTES[role]) {
       await page.goto(`${BASE}${route}`)
       const name = page.url().replace(`${BASE}/`, '').replace(/\//g, '_') || 'root'
       await shot(page, `${role}-${name.split('?')[0]}`)

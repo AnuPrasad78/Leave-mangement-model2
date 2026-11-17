@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import ProfileMenu from '../../../../src/components/layout/ProfileMenu'
-import type { EmployeeProfileRow } from '../../../../src/types/models'
+import ProfileMenu from '../../../../app/components/organisms/ProfileMenu'
+import type { EmployeeProfileRow } from '../../../../types/models'
 
 const fullProfile = {
   initials: 'PM',

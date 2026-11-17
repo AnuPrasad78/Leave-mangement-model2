@@ -36,14 +36,14 @@ Requires the real backend reachable (Docker compose up: see "Docker layout" belo
 then:
 
 ```bash
-npm run e2e            # boots its own Vite dev server on :5180 (strict port)
+npm run e2e            # boots its own next dev server on :5180 (webServer in playwright.config.ts)
 npx playwright test tests/e2e/apply-leave.spec.ts       # one spec
 npx playwright test -g "manager sign-in"                # one test by name
 ```
 
-Mutating specs create their own rows and clean up after themselves; logins come from
-`tests/e2e/fixtures.ts` (see `SEED_PASSWORD`). Requires the seeded auth users created by
-the Supabase setup skill (`supabase-setup`).
+Mutating specs create their own rows and clean up after themselves (API-based cleanup; approve-cycle approvals are irreversible and left behind on purpose). Logins come from
+`tests/e2e/fixtures.ts` (see `SEED_PASSWORD`) — those are the FastAPI compose seed accounts
+(`prastina.mary` manager, `vikram.deshmukh` staff, `admin@emids.com`; password from `DEMO_PASSWORD`).
 
 ## Backend — pytest
 

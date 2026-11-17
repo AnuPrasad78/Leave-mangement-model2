@@ -1,4 +1,4 @@
-import { STATUSES, MODES, ROLES, TOAST_KIND, MAX_PICKS, separationReasons } from '../../src/constants'
+import { STATUSES, MODES, ROLES, TOAST_KIND, MAX_PICKS, separationReasons } from '../../constants/index'
 
 // Contract pins — these mirror the Postgres enums in backend/supabase/schema.sql.
 // If the schema changes, these tests change with it (never silently).

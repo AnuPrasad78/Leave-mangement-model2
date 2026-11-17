@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { PanelTable } from '../../../../src/components/ui'
+import { PanelTable } from '../../../../app/components/index'
 
 const columns = [
   { label: 'Ref', cell: (r) => r.id, cellClass: 'req-id' },

@@ -1,8 +1,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { STATUSES } from '../../../../../src/constants'
-import LeaveRequestQueue from '../../../../../src/components/feature/leave-request-queue/LeaveRequestQueue'
-import type { TeamRequestRow } from '../../../../../src/types/models'
+import { STATUSES } from '../../../../../constants/index'
+import LeaveRequestQueue from '../../../../../app/(manager)/leave-requests/_components/LeaveRequestQueue'
+import type { TeamRequestRow } from '../../../../../types/models'
 
 const team = [
   { id: 'LV-1', mode: 'Full Day', name: 'Ravi Menon', empId: 'EM-1001', absenceType: 'Paid Time Off', from: '2026-11-02', to: '2026-11-04', days: 3, reason: 'Family function in Salem', requestedOn: '2026-10-01', status: STATUSES.Pending },

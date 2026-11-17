@@ -1,4 +1,4 @@
-import { fmtDate, dayName, businessDaysBetween, todayISO } from '../../../src/utils/dates'
+import { fmtDate, dayName, businessDaysBetween, todayISO } from '../../../utils/dates'
 
 describe('utils/dates', () => {
   describe('fmtDate (pinned: current data.js behavior)', () => {

@@ -7,6 +7,11 @@ from sqlalchemy import select
 
 from app.models import PasswordResetToken
 
+# conftest's default CORS_ORIGINS entry — a browser-emulated Origin so the
+# CSRF origin guard accepts cookie-bearing POSTs (once a login has left its
+# session cookie in the TestClient jar, every subsequent POST rides along).
+BROWSER_ORIGIN = {"Origin": "http://localhost:5173"}
+
 
 def init_reset(client, headers, user_id):
     return client.post(f"/admin/employee-password-resets/{user_id}/init", headers=headers)
@@ -32,18 +37,24 @@ def test_full_flow_replaces_the_password(client, admin_factory, employee_factory
         assert row.used_at is None
 
     assert client.post(
-        "/auth/login", json={"email": "reset.emp@emids.com", "password": "TestPassword123!"}
+        "/auth/login",
+        json={"email": "reset.emp@emids.com", "password": "TestPassword123!"},
+        headers=BROWSER_ORIGIN,
     ).status_code == 200
     perform = client.post(
-        payload["reset_endpoint"], json={"password": "FreshPassword44!"}
+        payload["reset_endpoint"], json={"password": "FreshPassword44!"}, headers=BROWSER_ORIGIN
     )
     assert perform.status_code == 200, perform.text
 
     assert client.post(
-        "/auth/login", json={"email": "reset.emp@emids.com", "password": "TestPassword123!"}
+        "/auth/login",
+        json={"email": "reset.emp@emids.com", "password": "TestPassword123!"},
+        headers=BROWSER_ORIGIN,
     ).status_code == 401
     assert client.post(
-        "/auth/login", json={"email": "reset.emp@emids.com", "password": "FreshPassword44!"}
+        "/auth/login",
+        json={"email": "reset.emp@emids.com", "password": "FreshPassword44!"},
+        headers=BROWSER_ORIGIN,
     ).status_code == 200
 
 

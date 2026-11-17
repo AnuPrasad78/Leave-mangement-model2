@@ -17,7 +17,7 @@ test('wrong password shows the error line and stays on /login', async ({ page })
   await page.getByPlaceholder('name@emids.com').fill(ROLES.manager)
   await page.locator('input[type="password"]').fill('definitely-wrong')
   await page.getByRole('button', { name: /sign in/i }).click()
-  await expect(page.getByText('Invalid login credentials')).toBeVisible({ timeout: 15000 })
+  await expect(page.getByText('Invalid email or password')).toBeVisible({ timeout: 15000 })
   expect(page.url()).toContain('/login')
 })
 

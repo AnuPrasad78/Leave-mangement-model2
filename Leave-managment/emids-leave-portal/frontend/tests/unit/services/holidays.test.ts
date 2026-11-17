@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/apiClient', async () => await import('../mocks/apiClient'))
+vi.mock('../../../services/apiClient', async () => await import('../mocks/apiClient'))
 
 import { apiRequest, resetApiClientMock } from '../mocks/apiClient'
 import {
@@ -9,7 +9,7 @@ import {
   addOptionalPick,
   removeOptionalPick,
   isPickCapError,
-} from '../../../src/services/holidays'
+} from '../../../services/holidays'
 
 beforeEach(() => resetApiClientMock())
 

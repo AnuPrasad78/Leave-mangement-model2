@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { Field } from '../../../../src/components/ui'
+import { Field } from '../../../../app/components/index'
 
 describe('ui/Field', () => {
   it('renders the pinned markup for a label-wrapped required field', () => {

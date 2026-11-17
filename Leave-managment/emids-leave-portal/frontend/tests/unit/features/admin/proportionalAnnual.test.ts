@@ -1,4 +1,4 @@
-import { proportionalAnnual, PRORATION_METHOD } from '../../../../src/features/admin/proportionalAnnual'
+import { proportionalAnnual, PRORATION_METHOD } from '../../../../app/lib/validation/proportionalAnnual'
 
 // Cases mirror backend/api/tests/test_leave_policy.py — the frontend copy is
 // display-only and both must agree on the 0.5-day grid.

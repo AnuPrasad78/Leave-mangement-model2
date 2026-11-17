@@ -1,5 +1,5 @@
-import { isOverdrawn, remainingAfter, EMPTY_BALANCES } from '../../../../src/features/balances/rules'
-import type { BalanceSummary } from '../../../../src/types/models'
+import { isOverdrawn, remainingAfter, EMPTY_BALANCES } from '../../../../app/lib/utils/balanceRules'
+import type { BalanceSummary } from '../../../../types/models'
 
 describe('features/balances/isOverdrawn', () => {
   it('is false when balances are missing', () => {

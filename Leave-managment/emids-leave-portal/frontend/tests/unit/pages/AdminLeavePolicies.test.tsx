@@ -1,16 +1,16 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/admin', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../src/services/admin')>()
+vi.mock('../../../services/admin', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../services/admin')>()
   return { ...actual, fetchAdminBalances: vi.fn(), adminUpsertBalance: vi.fn() }
 })
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import AdminLeavePolicies from '../../../src/pages/AdminLeavePolicies'
-import { adminUpsertBalance, fetchAdminBalances } from '../../../src/services/admin'
-import type { AdminBalanceRow } from '../../../src/types/models'
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import AdminLeavePolicies from '../../../app/(admin)/admin/leave-policies/_components/LeavePoliciesTemplate'
+import { adminUpsertBalance, fetchAdminBalances } from '../../../services/admin'
+import type { AdminBalanceRow } from '../../../types/models'
 
 const balance = (overrides: Partial<AdminBalanceRow> = {}): AdminBalanceRow => ({
   employee_id: 'e9',

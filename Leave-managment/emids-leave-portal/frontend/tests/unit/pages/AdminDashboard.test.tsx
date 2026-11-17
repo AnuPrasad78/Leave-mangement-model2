@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/admin', () => ({
+vi.mock('../../../services/admin', () => ({
   fetchStaleRequests: vi.fn(),
   fetchAdminEmployees: vi.fn(),
   fetchOrgRequests: vi.fn(),
@@ -10,10 +10,11 @@ vi.mock('../../../src/services/admin', () => ({
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import AdminDashboard from '../../../src/pages/AdminDashboard'
-import { adminCarryForward, fetchAdminEmployees, fetchLeavePolicies, fetchOrgRequests, fetchStaleRequests } from '../../../src/services/admin'
+import { navMocks } from '../router-mocks'
+vi.mock('next/navigation', () => navMocks())
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import AdminDashboard from '../../../app/(admin)/admin/_components/AdminOverviewTemplate'
+import { adminCarryForward, fetchAdminEmployees, fetchLeavePolicies, fetchOrgRequests, fetchStaleRequests } from '../../../services/admin'
 
 describe('pages/AdminDashboard', () => {
   beforeEach(() => {
@@ -58,22 +59,18 @@ describe('pages/AdminDashboard', () => {
 
   function setup(setToast = vi.fn()) {
     render(
-      <MemoryRouter>
-        <AuthContext.Provider value={{ setToast } as unknown as AuthContextValue}>
-          <AdminDashboard />
-        </AuthContext.Provider>
-      </MemoryRouter>
+      <AuthContext.Provider value={{ setToast } as unknown as AuthContextValue}>
+        <AdminDashboard />
+      </AuthContext.Provider>
     )
     return setToast
   }
 
   it('renders live org counts instead of hardcoded tiles', async () => {
     render(
-      <MemoryRouter>
-        <AuthContext.Provider value={{ setToast: vi.fn() } as unknown as AuthContextValue}>
-          <AdminDashboard />
-        </AuthContext.Provider>
-      </MemoryRouter>
+      <AuthContext.Provider value={{ setToast: vi.fn() } as unknown as AuthContextValue}>
+        <AdminDashboard />
+      </AuthContext.Provider>
     )
     await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument()) // headcount
     expect(screen.getByText('1')).toBeInTheDocument() // managers

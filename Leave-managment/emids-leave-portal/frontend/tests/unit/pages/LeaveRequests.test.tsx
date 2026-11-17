@@ -1,8 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import type { TeamRequestRow } from '../../../src/types/models'
-import LeaveRequests from '../../../src/pages/LeaveRequests'
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import type { TeamRequestRow } from '../../../types/models'
+import LeaveRequests from '../../../app/(manager)/leave-requests/_components/LeaveRequestsTemplate'
 
 const pending = (id: string, name: string) => ({
   id, mode: 'Full Day', name, empId: `EM-${id}`, absenceType: 'Paid Time Off',

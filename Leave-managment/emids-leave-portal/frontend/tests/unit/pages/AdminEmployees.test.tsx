@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-vi.mock('../../../src/services/admin', () => ({
+vi.mock('../../../services/admin', () => ({
   // the editor fetches active managers whenever it opens — default to an empty page
   fetchAdminEmployees: vi.fn(async () => ({
     page: { rows: [], page: 1, page_size: 100, total: 0, page_count: 0 },
@@ -14,11 +14,11 @@ vi.mock('../../../src/services/admin', () => ({
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AuthContext, type AuthContextValue } from '../../../src/store/AuthContext'
-import { AdminContext, type AdminContextValue } from '../../../src/store/AdminContext'
-import AdminEmployees from '../../../src/pages/AdminEmployees'
-import { todayISO } from '../../../src/utils/dates'
-import type { EmployeeAdminRow } from '../../../src/types/models'
+import { AuthContext, type AuthContextValue } from '../../../store/AuthContext'
+import { AdminContext, type AdminContextValue } from '../../../store/AdminContext'
+import AdminEmployees from '../../../app/(admin)/admin/employees/_components/EmployeeManagementTemplate'
+import { todayISO } from '../../../utils/dates'
+import type { EmployeeAdminRow } from '../../../types/models'
 
 const row = (overrides: Partial<EmployeeAdminRow> = {}): EmployeeAdminRow => ({
   id: 'e1',
@@ -109,7 +109,7 @@ describe('pages/AdminEmployees', () => {
   })
 
   it('prefills Date of Joining with today and no manager when creating', async () => {
-    const { fetchAdminEmployees } = await import('../../../src/services/admin')
+    const { fetchAdminEmployees } = await import('../../../services/admin')
     vi.mocked(fetchAdminEmployees).mockResolvedValue({
       page: { rows: [], page: 1, page_size: 100, total: 0, page_count: 0 },
       error: null,
@@ -131,7 +131,7 @@ describe('pages/AdminEmployees', () => {
   })
 
   it('offers the active managers by name and submits the chosen manager id', async () => {
-    const { fetchAdminEmployees } = await import('../../../src/services/admin')
+    const { fetchAdminEmployees } = await import('../../../services/admin')
     vi.mocked(fetchAdminEmployees).mockResolvedValue({
       page: {
         rows: [
@@ -164,7 +164,7 @@ describe('pages/AdminEmployees', () => {
   })
 
   it('keeps the stored Date of Joining and manager when editing', async () => {
-    const { fetchAdminEmployees } = await import('../../../src/services/admin')
+    const { fetchAdminEmployees } = await import('../../../services/admin')
     vi.mocked(fetchAdminEmployees).mockResolvedValue({
       page: { rows: [], page: 1, page_size: 100, total: 0, page_count: 0 },
       error: null,
