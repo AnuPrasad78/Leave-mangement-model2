@@ -18,6 +18,7 @@ from app.leave_policy import (
     OPTIONAL_HOLIDAYS_MAX,
     carry_forward_amount,
     deduction_pool,
+    is_optional_holiday_type,
     prorated_annual,
 )
 from app.models import (
@@ -192,6 +193,82 @@ def request_rows_query(session: Session, stmt) -> list[dict]:
     return [request_payload(request, employee, leave_type) for request, employee, leave_type in rows]
 
 
+_CONSUMED_STATUSES = (LeaveStatus.PENDING, LeaveStatus.APPROVED)
+
+
+def _validate_optional_holiday_request(
+    session: Session,
+    employee_id: str,
+    leave_type: LeaveType,
+    from_date: date,
+    to_date: date,
+    mode: LeaveMode,
+    days: Decimal,
+    exclude_request_id: int | None = None,
+) -> None:
+    """Authoritative Optional-Holiday rules (in addition to the generic request
+    guards): one configured optional holiday, not in the past, single full day,
+    no duplicate open request, and the yearly allowance cap. Frontend gating is
+    convenience only — these checks reject direct API calls."""
+    if not is_optional_holiday_type(leave_type.name):
+        return
+
+    if from_date != to_date or mode != LeaveMode.FULL_DAY or days != Decimal("1"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Optional holidays are single full-day requests",
+        )
+
+    if from_date < date.today():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Optional holiday leave cannot be requested for a past date",
+        )
+
+    configured = session.scalar(
+        select(Holiday).where(Holiday.kind == "optional", Holiday.holiday_date == from_date)
+    )
+    if configured is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="This date is not a configured optional holiday",
+        )
+
+    # Advisory lock serializes the allowance/duplicate read-modify-write for
+    # this employee and year, mirroring the optional-picks cap.
+    lock_key = f"optional-leave:{employee_id}:{from_date.year}"
+    session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+        {"lock_key": lock_key},
+    )
+
+    consumed_query = (
+        select(LeaveRequest)
+        .join(LeaveType, LeaveType.id == LeaveRequest.leave_type_id)
+        .where(
+            LeaveRequest.employee_id == employee_id,
+            LeaveType.name == leave_type.name,
+            LeaveRequest.status.in_(_CONSUMED_STATUSES),
+            func.extract("year", LeaveRequest.start_date) == from_date.year,
+        )
+    )
+    if exclude_request_id is not None:
+        consumed_query = consumed_query.where(LeaveRequest.id != exclude_request_id)
+    consumed_requests = session.scalars(consumed_query).all()
+
+    if any(request.start_date == from_date for request in consumed_requests):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You already have a request for this optional holiday",
+        )
+
+    if len(consumed_requests) >= OPTIONAL_HOLIDAYS_MAX:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"You can use only {OPTIONAL_HOLIDAYS_MAX} optional holidays per year",
+        )
+
+
 @router.post("/leave-requests", status_code=status.HTTP_201_CREATED)
 def create_leave_request(
     payload: LeaveRequestInput,
@@ -207,6 +284,9 @@ def create_leave_request(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid leave dates or day count")
     if payload.mode != LeaveMode.FULL_DAY and (payload.from_date != payload.to_date or payload.days != Decimal("0.5")):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Half-day requests must be a single 0.5-day date")
+    _validate_optional_holiday_request(
+        session, employee.id, leave_type, payload.from_date, payload.to_date, payload.mode, payload.days
+    )
 
     request = LeaveRequest(
         employee_id=employee.id,
@@ -301,6 +381,11 @@ def update_leave_request(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Half-day requests must be a single 0.5-day date",
         )
+    _validate_optional_holiday_request(
+        session, employee.id, leave_type,
+        payload.from_date, payload.to_date, payload.mode, payload.days,
+        exclude_request_id=request.id,
+    )
 
     request.leave_type_id = leave_type.id
     request.start_date = payload.from_date
@@ -474,6 +559,19 @@ def list_leave_types(
         select(LeaveType).where(LeaveType.is_active.is_(True)).order_by(LeaveType.id)
     ).all()
     return [{"name": leave_type.name} for leave_type in leave_types]
+
+
+@router.get("/leave-policies/me")
+def read_my_leave_policies(
+    employee: Employee = Depends(current_employee),
+) -> dict[str, str | int]:
+    """Employee-visible slice of the policy constants the UI renders limits
+    from — the leave-side optional-holiday allowance (the picks cap is a
+    separate Holiday-Calendar rule)."""
+    return {
+        "employee_id": employee.id,
+        "optional_holidays_max": OPTIONAL_HOLIDAYS_MAX,
+    }
 
 
 @router.get("/holidays")

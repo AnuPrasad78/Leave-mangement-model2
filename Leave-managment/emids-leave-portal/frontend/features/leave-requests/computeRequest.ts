@@ -1,6 +1,8 @@
-import { businessDaysBetween } from '../../utils/dates'
+import { businessDaysBetween, todayISO } from '../../utils/dates'
 import { MODES } from '../../constants'
 import type { LeaveMode } from '../../types/models'
+import { isOptionalHolidayType, remainingOptionalHolidays } from '../holidays/optionalAllowance'
+import type { LeaveRequestRow } from '../../types/models'
 
 export function computeRequestDays({
   from,
@@ -30,15 +32,24 @@ export function validateRequest({
   from,
   to,
   reason,
-  pickedOptionalHolidays,
+  optionalHolidays,
+  mine,
+  optionalAllowance,
+  excludeRequestId,
 }: {
   type: string
   from: string
   to: string
   reason: string
-  /** Date → name map of the user's optional-holiday picks from the Holiday
-   * Calendar. Omitted only when the data is unavailable. */
-  pickedOptionalHolidays?: Map<string, string>
+  /** Date → name map of the configured optional holidays (Holidays page).
+   * Omitted only while the configuration is still loading. */
+  optionalHolidays?: Map<string, string>
+  /** Own leave requests — feeds the allowance count. */
+  mine?: LeaveRequestRow[]
+  /** Optional-holiday allowance cap from backend policy; null = unknown. */
+  optionalAllowance?: number | null
+  /** While editing: the request being edited must not count against itself. */
+  excludeRequestId?: string
 }): RequestValidationErrors {
   const errs: RequestValidationErrors = {}
   if (!type) errs.type = 'Select a leave type.'
@@ -46,15 +57,20 @@ export function validateRequest({
   if (!to) errs.to = 'Pick a to date.'
   if (from && to && to < from) errs.to = 'End date is before the start date.'
   if (reason.trim().length < 5) errs.reason = 'Tell the approver why, in a line or two.'
-  if (!errs.type && !errs.from && !errs.to && type.toLowerCase().includes('optional holiday')) {
+  if (!errs.type && !errs.from && !errs.to && isOptionalHolidayType(type)) {
     if (from !== to) {
       errs.to = 'Optional holidays are single-day requests — set To to the same date as From.'
-    } else if (!pickedOptionalHolidays) {
-      errs.from = 'Your optional holiday picks are still loading — try again in a moment.'
-    } else {
-      const name = pickedOptionalHolidays.get(from)
-      if (!name) {
-        errs.from = 'This date is not one of your selected optional holidays. Select it in the Holiday Calendar first.'
+    } else if (!optionalHolidays) {
+      errs.from = 'Optional holiday dates are still loading — try again in a moment.'
+    } else if (!optionalHolidays.has(from)) {
+      errs.from = 'This date is not a configured optional holiday. Pick one from the calendar.'
+    } else if (from < todayISO()) {
+      errs.from = 'Optional holidays cannot be applied for in the past.'
+    } else if (optionalAllowance != null) {
+      const year = Number(from.slice(0, 4))
+      const remaining = remainingOptionalHolidays(mine ?? [], year, optionalAllowance, excludeRequestId)
+      if (remaining != null && remaining <= 0) {
+        errs.from = 'You have used all your Optional Holidays for this year.'
       }
     }
   }

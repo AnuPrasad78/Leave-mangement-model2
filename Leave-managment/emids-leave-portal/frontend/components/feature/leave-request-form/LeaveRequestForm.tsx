@@ -5,6 +5,7 @@ import { computeRequestDays, validateRequest } from '../../../features/leave-req
 import type { RequestValidationErrors } from '../../../features/leave-requests/computeRequest'
 import OptionalHolidayCalendar from './OptionalHolidayCalendar'
 import { isOverdrawn, remainingAfter } from '../../../features/balances/rules'
+import { isOptionalHolidayType, remainingOptionalHolidays } from '../../../features/holidays/optionalAllowance'
 import { todayISO } from '../../../utils/dates'
 import { MODES } from '../../../constants'
 import type { BalanceSummary, LeaveRequestInput, LeaveRequestRow, LeaveRequestUpdateInput, LeaveMode } from '../../../types/models'
@@ -12,9 +13,14 @@ import type { BalanceSummary, LeaveRequestInput, LeaveRequestRow, LeaveRequestUp
 export interface LeaveRequestFormProps {
   leaveTypes: string[]
   balances: BalanceSummary | null
-  /** The user's Holiday-Calendar optional picks (date → name). Gates the
-   * "Optional Holiday" leave type: that date must be among the picks. */
-  pickedOptionalHolidays?: Map<string, string> | null
+  /** Configured optional holidays from the Holidays configuration (date →
+   * name). Gates the "Optional Holiday" leave type: that date must be a
+   * configured optional holiday, today or later. */
+  optionalHolidays?: Map<string, string> | null
+  /** The employee's own requests — feeds the allowance count. */
+  mine?: LeaveRequestRow[]
+  /** Optional-holiday allowance from backend policy; null while unknown. */
+  optionalAllowance?: number | null
   addMine?: (input: LeaveRequestInput) => Promise<string | null>
   updateMine?: (id: string, input: LeaveRequestUpdateInput) => Promise<boolean>
   editRequest?: LeaveRequestRow
@@ -23,7 +29,7 @@ export interface LeaveRequestFormProps {
   onCancel: () => void
 }
 
-export default function LeaveRequestForm({ leaveTypes, balances, pickedOptionalHolidays, addMine, updateMine, editRequest, onSubmitted, onError, onCancel }: LeaveRequestFormProps) {
+export default function LeaveRequestForm({ leaveTypes, balances, optionalHolidays, mine, optionalAllowance, addMine, updateMine, editRequest, onSubmitted, onError, onCancel }: LeaveRequestFormProps) {
   const [type, setType] = useState(editRequest?.type ?? 'Paid Time Off')
   const [from, setFrom] = useState(editRequest?.from ?? '')
   const [to, setTo] = useState(editRequest?.to ?? '')
@@ -31,13 +37,13 @@ export default function LeaveRequestForm({ leaveTypes, balances, pickedOptionalH
   const [reason, setReason] = useState(editRequest?.reason ?? '')
   const [errors, setErrors] = useState<RequestValidationErrors>({})
 
-  const isOptionalHoliday = type.toLowerCase().includes('optional holiday')
+  const isOptionalHoliday = isOptionalHolidayType(type)
 
   const pickType = (t: string) => {
     setType(t)
     // Optional holidays are single full days; collapse any stale range and
     // drop half-day modes so the calendar drives one-date selection.
-    if (t.toLowerCase().includes('optional holiday')) {
+    if (isOptionalHolidayType(t)) {
       setMode(MODES.Full)
       if (from) setTo(from)
     }
@@ -48,8 +54,18 @@ export default function LeaveRequestForm({ leaveTypes, balances, pickedOptionalH
     [from, to, mode, isOptionalHoliday]
   )
 
-  const remaining = remainingAfter(balances, days)
+  // Optional holidays live on their own allowance, never on a balance row —
+  // the regular "remaining days" figure is hidden for them.
+  const remaining = isOptionalHoliday ? null : remainingAfter(balances, days)
   const fmt = (v: number) => (v == null ? '' : Number.isInteger(v) ? String(v) : v.toFixed(1))
+
+  // The optional allowance line tracks the year of the selection (today's year
+  // until a date is picked); editing a request never counts it against itself.
+  const allowanceYear = from ? Number(from.slice(0, 4)) : Number(todayISO().slice(0, 4))
+  const remainingOptional = useMemo(
+    () => remainingOptionalHolidays(mine ?? [], allowanceYear, optionalAllowance ?? null, editRequest?.id),
+    [mine, allowanceYear, optionalAllowance, editRequest]
+  )
 
   // From/To errors are shown as one full-width line under the dates row so a
   // long sentence (e.g. the optional-holiday gate) doesn't wrap five lines
@@ -57,15 +73,25 @@ export default function LeaveRequestForm({ leaveTypes, balances, pickedOptionalH
   const dateErrors = [errors.from, errors.to].filter((v): v is string => Boolean(v))
 
   // Data guard: an overdrawn stored balance (utilized > credited + opening)
-  // blocks new requests until the People Success desk corrects the ledger.
-  const overdrawn = isOverdrawn(balances)
+  // blocks new requests until the People Success desk corrects the ledger —
+  // optional holidays don't draw a balance, so they stay submittable.
+  const overdrawn = !isOptionalHoliday && isOverdrawn(balances)
 
   const [submitting, setSubmitting] = useState(false)
   const [outcomeUnknown, setOutcomeUnknown] = useState(false)
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const errs = validateRequest({ type, from, to, reason, pickedOptionalHolidays: pickedOptionalHolidays ?? undefined })
+    const errs = validateRequest({
+      type,
+      from,
+      to,
+      reason,
+      optionalHolidays: optionalHolidays ?? undefined,
+      mine,
+      optionalAllowance,
+      excludeRequestId: editRequest?.id,
+    })
     setErrors(errs)
     if (Object.keys(errs).length || !days) return
     setSubmitting(true)
@@ -99,6 +125,14 @@ export default function LeaveRequestForm({ leaveTypes, balances, pickedOptionalH
                 {t}
               </Chip>
             ))}
+            {isOptionalHoliday && optionalAllowance == null && (
+              <span className="opt-allowance">Optional holiday allowance loading…</span>
+            )}
+            {isOptionalHoliday && optionalAllowance != null && remainingOptional != null && (
+              <span className="opt-allowance" role="status">
+                Remaining: {remainingOptional} out of {optionalAllowance} Optional Holidays
+              </span>
+            )}
           </div>
         </Field>
 
@@ -108,9 +142,9 @@ export default function LeaveRequestForm({ leaveTypes, balances, pickedOptionalH
               <span className="field__label">
                 Optional Holiday Date <span className='req'>*</span>
               </span>
-              {pickedOptionalHolidays ? (
+              {optionalHolidays ? (
                 <OptionalHolidayCalendar
-                  picked={pickedOptionalHolidays}
+                  options={optionalHolidays}
                   selected={from}
                   onSelect={(d) => {
                     setFrom(d)
@@ -118,7 +152,7 @@ export default function LeaveRequestForm({ leaveTypes, balances, pickedOptionalH
                   }}
                 />
               ) : (
-                <span className="opt-calendar__loading">Loading your optional holiday picks…</span>
+                <span className="opt-calendar__loading">Loading the configured optional holidays…</span>
               )}
             </div>
           ) : (
@@ -152,14 +186,22 @@ export default function LeaveRequestForm({ leaveTypes, balances, pickedOptionalH
           <div className="field">
             <span className="field__label">Number of days</span>
             <div className="form-days">
-              {remaining != null && (
-                remaining <= 0 ? (
-                  <span className="form-days__rem">No available leave</span>
-                ) : (<>
-                  <span>Selected <b>{days ?? '—'}</b> day{days === 1 ? '' : 's'}</span>
-                  <span className="form-days__rem">
-                    Remaining <b>{fmt(remaining)}</b> days
-                  </span></>
+              {isOptionalHoliday ? (
+                // Optional holidays never draw a balance pool, so only the
+                // selection size is shown here.
+                days != null && (
+                  <span>Selected <b>{days}</b> day{days === 1 ? '' : 's'}</span>
+                )
+              ) : (
+                remaining != null && (
+                  remaining <= 0 ? (
+                    <span className="form-days__rem">No available leave</span>
+                  ) : (<>
+                    <span>Selected <b>{days ?? '—'}</b> day{days === 1 ? '' : 's'}</span>
+                    <span className="form-days__rem">
+                      Remaining <b>{fmt(remaining)}</b> days
+                    </span></>
+                  )
                 )
               )}
               {overdrawn && <span className="form-days__rem">You have exceeded your available leave balance</span>}

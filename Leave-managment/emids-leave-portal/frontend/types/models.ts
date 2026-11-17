@@ -107,6 +107,12 @@ export interface OptionalHolidayPickInsert {
   holiday_id: number
 }
 
+// GET /leave-policies/me — the employee-visible slice of the policy constants.
+export interface LeavePolicyMeRow {
+  employee_id: string
+  optional_holidays_max: number
+}
+
 // The joined row the leave-requests columns select:
 //   leave_types!leave_requests_leave_type_id_fkey(name)
 //   employees!leave_requests_employee_id_fkey(full_name, emp_no)

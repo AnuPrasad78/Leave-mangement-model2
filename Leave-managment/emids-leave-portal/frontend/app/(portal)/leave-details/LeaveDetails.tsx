@@ -3,13 +3,15 @@ import { useAuth } from '@/store/AuthContext'
 import { PageHead } from '@/components/ui'
 import LeaveRequestHistory from '@/components/feature/leave-request-history/LeaveRequestHistory'
 import LeaveRequestForm from '@/components/feature/leave-request-form/LeaveRequestForm'
-import { usePickedOptionalHolidays } from '@/features/holidays/usePickedOptionalHolidays'
+import { useOptionalHolidayConfig } from '@/features/holidays/useOptionalHolidayConfig'
+import { useOptionalHolidayAllowance } from '@/features/holidays/useOptionalHolidayAllowance'
 import { TOAST_KIND } from '@/constants'
 import type { LeaveRequestRow } from '@/types/models'
 
 export default function LeaveDetails() {
-  const { mine, cancelMine, updateMine, leaveTypes, balances, setToast, CURRENT_YEAR, profile } = useAuth()
-  const pickedOptionalHolidays = usePickedOptionalHolidays(profile ?? null, setToast)
+  const { mine, cancelMine, updateMine, leaveTypes, balances, setToast, CURRENT_YEAR } = useAuth()
+  const optionalHolidays = useOptionalHolidayConfig(setToast)
+  const optionalAllowance = useOptionalHolidayAllowance(setToast)
   const [editing, setEditing] = useState<LeaveRequestRow | null>(null)
 
   return (
@@ -25,7 +27,9 @@ export default function LeaveDetails() {
             key={editing.id}
             leaveTypes={leaveTypes}
             balances={balances}
-            pickedOptionalHolidays={pickedOptionalHolidays}
+            optionalHolidays={optionalHolidays}
+            optionalAllowance={optionalAllowance}
+            mine={mine}
             updateMine={updateMine}
             editRequest={editing}
             onCancel={() => setEditing(null)}

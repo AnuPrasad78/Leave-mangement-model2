@@ -64,7 +64,8 @@ app/                # the Next.js App Router — the only routing layer
   hooks/             # useDismiss, useDebouncedValue, usePagedData
   lib/session.ts     # server-only session helpers (jose HS256) shared by middleware + route handlers
   services/          # every service (leaveRequests, holidays, balances, leaveTypes, employees,
-                     # separations, notifications, admin, legacyMigration, auth + errors.ts) goes through
+                     # leavePolicy, separations, notifications, admin, legacyMigration, auth +
+                     # errors.ts) goes through
                      # apiClient.ts, which fetches same-origin /api/<path> (the Next.js BFF proxy handing
                      # the request to the FastAPI backend with the cookie's JWT). Every call returns
                      # { data, error }; auth deliberately returns raw backend messages (Login's wording contract)
@@ -109,8 +110,8 @@ Component classification is based on responsibility and behavior rather than vis
 
 `backend/api/app/`:
 
-- `leave_policy.py` — the pure policy layer: `deduction_pool()` decides what pool a leave type's days draw from by type *name* (`Contingency Bucket` → contingency; `Work From Home`, `Business Travel`, `Leave Without Pay`, `Loss Of Pay` → no deduction; everything else → annual), plus yearly entitlements and the optional-holiday pick cap.
-- `routes.py` — endpoint-level enforcement: `can_decide_for()` gates who may approve (direct reports; managers/admins only move Pending → Approved/Rejected), employees may only cancel their own Pending request, and on submit it converts the `leave_requests_no_active_overlap` **exclusion constraint** (from the initial Alembic migration) into a 409 `Dates overlap another active request` — e2e specs pick dates ~60 days out to avoid collisions.
+- `leave_policy.py` — the pure policy layer: `deduction_pool()` decides what pool a leave type's days draw from by type *name* (`Contingency Bucket` → contingency; `Optional Holiday` → none — it is tracked on its own allowance, never a balance pool; `Work From Home`, `Business Travel`, `Leave Without Pay`, `Loss Of Pay` → no deduction; everything else → annual), plus yearly entitlements, the optional-holiday pick cap and `OPTIONAL_HOLIDAYS_MAX` (the leave allowance the `Optional Holiday` request rules count against).
+- `routes.py` — endpoint-level enforcement: `can_decide_for()` gates who may approve (direct reports; managers/admins only move Pending → Approved/Rejected), employees may only cancel their own Pending request, and on submit it converts the `leave_requests_no_active_overlap` **exclusion constraint** (from the initial Alembic migration) into a 409 `Dates overlap another active request` — e2e specs pick dates ~60 days out to avoid collisions. `_validate_optional_holiday_request()` (shared by create and update) authoritatively enforces the Optional-Holiday rules: single full day, `kind='optional'` Holiday row on the date, not in the past, no duplicate open request, and the per-year allowance cap, under an advisory lock; `GET /leave-policies/me` exposes the allowance to the UI (also `services/leavePolicy.ts` + the dedicated remaining-count rule in `features/holidays/optionalAllowance.ts`, shown as `Remaining: n out of 3 Optional Holidays` beside the leave-type chip in `LeaveRequestForm`).
 - Alembic migrations under `backend/api/migrations/versions/` (initial schema, then admin persona tables); `models.py` / `schemas.py` / `db.py` hold the SQLAlchemy layer.
 
 **Consequence carried over from backend enforcement:** update-like payloads from the client must touch only the fields the rules allow — the AuthContext helpers already do this.

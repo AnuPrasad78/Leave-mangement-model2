@@ -60,6 +60,7 @@ def test_prorated_annual_stays_within_cap():
         ("Business Travel", None),
         ("Leave Without Pay", None),
         ("Loss Of Pay", None),
+        ("Optional Holiday", None),
         ("Paid Time Off", "annual"),
         ("Compensatory Off", "annual"),
     ],

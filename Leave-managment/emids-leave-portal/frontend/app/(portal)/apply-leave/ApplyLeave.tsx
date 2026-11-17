@@ -3,12 +3,14 @@ import { useAuth } from '@/store/AuthContext'
 import { TOAST_KIND } from '@/constants'
 import { PageHead } from '@/components/ui'
 import LeaveRequestForm from '@/components/feature/leave-request-form/LeaveRequestForm'
-import { usePickedOptionalHolidays } from '@/features/holidays/usePickedOptionalHolidays'
+import { useOptionalHolidayConfig } from '@/features/holidays/useOptionalHolidayConfig'
+import { useOptionalHolidayAllowance } from '@/features/holidays/useOptionalHolidayAllowance'
 
 export default function ApplyLeave() {
   const router = useRouter()
-  const { setToast, addMine, leaveTypes, balances, profile } = useAuth()
-  const pickedOptionalHolidays = usePickedOptionalHolidays(profile ?? null, setToast)
+  const { setToast, addMine, leaveTypes, balances, mine } = useAuth()
+  const optionalHolidays = useOptionalHolidayConfig(setToast)
+  const optionalAllowance = useOptionalHolidayAllowance(setToast)
 
   return (
     <div className="page">
@@ -16,7 +18,9 @@ export default function ApplyLeave() {
       <LeaveRequestForm
         leaveTypes={leaveTypes}
         balances={balances}
-        pickedOptionalHolidays={pickedOptionalHolidays}
+        optionalHolidays={optionalHolidays}
+        optionalAllowance={optionalAllowance}
+        mine={mine}
         addMine={addMine}
         onCancel={() => router.push('/dashboard')}
         onError={(message) => setToast(message, TOAST_KIND.Error)}

@@ -15,6 +15,15 @@ CONTINGENCY_DAYS_PER_YEAR = Decimal("10")
 CARRY_FORWARD_MAX = Decimal("6")
 OPTIONAL_HOLIDAYS_MAX = 3
 
+# The leave type the Optional-Holiday leave application draws its allowed
+# dates from (leave seed data `LeaveType.name`); kept here so the date/allowance
+# rules below and the callers agree on the exact name.
+OPTIONAL_HOLIDAY_TYPE_NAME = "Optional Holiday"
+
+
+def is_optional_holiday_type(leave_type_name: str) -> bool:
+    return leave_type_name.strip().lower() == OPTIONAL_HOLIDAY_TYPE_NAME.lower()
+
 # Serialized into audit rows so a change of method is visible in history.
 PRORATION_METHOD = "months_worked_of_12_half_up"
 
@@ -42,10 +51,14 @@ def prorated_annual(doj: date | None, year: int) -> Decimal:
 def deduction_pool(leave_type_name: str) -> str | None:
     """Which balance pool (if any) a leave type draws from.
 
-    Mirrors the 2026 policy: Contingency Bucket draws contingency; Work From
-    Home, Business Travel and both leave-without-pay names deduct nothing;
-    every other type draws the annual pool. `None` means no deduction.
+    Mirrors the 2026 policy: Contingency Bucket draws contingency; Optional
+    Holiday is tracked separately (allowance-cap validated on request) and
+    never touches a balance pool; Work From Home, Business Travel and both
+    leave-without-pay names deduct nothing; every other type draws the annual
+    pool. `None` means no deduction.
     """
+    if is_optional_holiday_type(leave_type_name):
+        return None
     if leave_type_name == "Contingency Bucket":
         return "contingency"
     if leave_type_name in {

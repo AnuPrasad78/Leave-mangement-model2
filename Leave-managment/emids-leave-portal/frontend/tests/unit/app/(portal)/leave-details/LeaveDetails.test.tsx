@@ -14,7 +14,7 @@ const row = (id: string, status: string, extra: object = {}): LeaveRequestRow =>
 
 function setup({ mine, cancelMine = vi.fn(async () => {}) }: { mine?: LeaveRequestRow[]; cancelMine?: () => Promise<void> } = {}) {
   render(
-    <AuthContext.Provider value={{ mine: mine ?? [], cancelMine, CURRENT_YEAR: 2026 } as unknown as AuthContextValue}>
+    <AuthContext.Provider value={{ mine: mine ?? [], cancelMine, setToast: vi.fn(), CURRENT_YEAR: 2026 } as unknown as AuthContextValue}>
       <LeaveDetails />
     </AuthContext.Provider>
   )

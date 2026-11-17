@@ -6,6 +6,7 @@ import LeaveRequestForm from '@/components/feature/leave-request-form/LeaveReque
 import type { BalanceSummary, LeaveRequestInput, LeaveRequestRow, LeaveRequestUpdateInput } from '@/types/models'
 
 const leaveTypes = ['Paid Time Off', 'Work From Home']
+const optionalLeaveTypes = ['Paid Time Off', 'Optional Holiday']
 const balances: BalanceSummary = {
   totalCredited: 20,
   utilized: 5,
@@ -142,5 +143,128 @@ describe('components/feature/LeaveRequestForm', () => {
       reason: 'Original reason',
     })
     expect(onSubmitted).toHaveBeenCalledWith(expect.stringContaining('updated'))
+  })
+})
+
+describe('components/feature/LeaveRequestForm — Optional Holiday', () => {
+  function iso(offsetDays: number): string {
+    const base = new Date(todayISO() + 'T00:00:00')
+    base.setDate(base.getDate() + offsetDays)
+    return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`
+  }
+
+  const optionalHolidays = new Map([[iso(30), 'Guru Nanak Jayanti']])
+
+  function setupOptional(overrides: Partial<Parameters<typeof LeaveRequestForm>[0]> = {}) {
+    const addMine = vi.fn(async () => 'LV-200')
+    render(
+      <LeaveRequestForm
+        leaveTypes={optionalLeaveTypes}
+        balances={balances}
+        optionalHolidays={optionalHolidays}
+        mine={[]}
+        optionalAllowance={3}
+        addMine={addMine}
+        onSubmitted={vi.fn()}
+        onCancel={vi.fn()}
+        onError={vi.fn()}
+        {...overrides}
+      />
+    )
+    return addMine
+  }
+
+  it('shows one calendar instead of From/To and the allowance next to the type', async () => {
+    const user = userEvent.setup()
+    setupOptional()
+    await user.click(screen.getByRole('button', { name: 'Optional Holiday' }))
+
+    expect(screen.queryByLabelText(/From Date/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/To Date/)).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Optional holiday picker' })).toBeInTheDocument()
+    expect(screen.getByText(/Remaining: 3 out of 3 Optional Holidays/)).toBeInTheDocument()
+    // The regular balance block stays hidden: optional holidays never touch it.
+    expect(screen.queryByText(/Remaining \d/)).not.toBeInTheDocument()
+  })
+
+  it('submits one day for the configured holiday and decrements the allowance', async () => {
+    const user = userEvent.setup()
+    const mine: LeaveRequestRow[] = []
+    const addMine = setupOptional({ mine })
+    await user.click(screen.getByRole('button', { name: 'Optional Holiday' }))
+    // The configured holiday sits in next month; step the picker over.
+    await user.click(screen.getByRole('button', { name: 'Next month' }))
+    await user.click(screen.getByRole('button', { name: `${iso(30)} — Guru Nanak Jayanti` }))
+
+    expect(screen.getByText(/Remaining: 3 out of 3 Optional Holidays/)).toBeInTheDocument()
+    expect(screen.getByText(/Selected/)).toHaveTextContent('Selected 1 day')
+
+    await user.type(screen.getByLabelText(/Reason/), 'Festival at home with family')
+    await user.click(screen.getByRole('button', { name: 'Submit Request' }))
+
+    expect(addMine).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'Optional Holiday', from: iso(30), to: iso(30), days: 1, mode: MODES.Full })
+    )
+  })
+
+  it('blocks submitting a date that is not a configured optional holiday', async () => {
+    const user = userEvent.setup()
+    // Edit-existing flow: the stored date is (no longer) a configured holiday.
+    const unconfigured: LeaveRequestRow = {
+      id: 'LV-9',
+      type: 'Optional Holiday',
+      from: iso(15),
+      to: iso(15),
+      days: 1,
+      mode: MODES.Full,
+      reason: 'Festival at home with family',
+      requestedOn: todayISO(),
+      status: 'Pending',
+    }
+    render(
+      <LeaveRequestForm
+        leaveTypes={optionalLeaveTypes}
+        balances={balances}
+        optionalHolidays={optionalHolidays}
+        mine={[]}
+        optionalAllowance={3}
+        updateMine={vi.fn(async () => true)}
+        editRequest={unconfigured}
+        onSubmitted={vi.fn()}
+        onCancel={vi.fn()}
+        onError={vi.fn()}
+      />
+    )
+    await user.type(screen.getByLabelText(/Reason/), 'Festival at home with family')
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    expect(screen.getByText('This date is not a configured optional holiday. Pick one from the calendar.')).toBeInTheDocument()
+  })
+
+  it('reports the exhausted allowance for the picked year', async () => {
+    const user = userEvent.setup()
+    setupOptional({
+      mine: [
+        { id: 'LV-1', type: 'Optional Holiday', from: iso(10), to: iso(10), days: 1, mode: MODES.Full, reason: 'a', requestedOn: todayISO(), status: 'Approved' },
+        { id: 'LV-2', type: 'Optional Holiday', from: iso(11), to: iso(11), days: 1, mode: MODES.Full, reason: 'b', requestedOn: todayISO(), status: 'Approved' },
+        { id: 'LV-3', type: 'Optional Holiday', from: iso(12), to: iso(12), days: 1, mode: MODES.Full, reason: 'c', requestedOn: todayISO(), status: 'Pending' },
+      ],
+    })
+    await user.click(screen.getByRole('button', { name: 'Optional Holiday' }))
+    expect(screen.getByText(/Remaining: 0 out of 3 Optional Holidays/)).toBeInTheDocument()
+    // The calendar still renders (configured dates enabled) but validation
+    // refuses a fourth request when a date is picked and submitted.
+    await user.type(screen.getByLabelText(/Reason/), 'Festival at home with family')
+    await user.click(screen.getByRole('button', { name: 'Submit Request' }))
+    expect(screen.getByText(/Pick a from date\./)).toBeInTheDocument()
+  })
+
+  it('stays submittable when the ledger is overdrawn but the type is optional', async () => {
+    const user = userEvent.setup()
+    setupOptional({
+      balances: { totalCredited: 5, utilized: 8, rows: [{ key: 'available', label: 'Available', value: 0, max: 18 }] },
+    })
+    await user.click(screen.getByRole('button', { name: 'Optional Holiday' }))
+    expect(screen.getByRole('button', { name: 'Submit Request' })).toBeEnabled()
   })
 })

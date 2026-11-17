@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { IconChevronDown } from '../../Icons'
+import { todayISO } from '../../../utils/dates'
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -11,25 +12,26 @@ const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const monFirst = (d: Date): number => (d.getDay() + 6) % 7
 
 export interface OptionalHolidayCalendarProps {
-  /** Picked optional holidays from the Holiday Calendar: date → name. */
-  picked: Map<string, string>
+  /** Configured optional holidays from the Holidays configuration: date → name. */
+  options: Map<string, string>
   selected: string
   onSelect: (dateISO: string) => void
 }
 
 const pad2 = (n: number): string => String(n).padStart(2, '0')
 
-/** Month grid for the Optional Holiday leave type: only the optional
- * holidays the user picked in the Holiday Calendar are highlighted and
- * clickable — every other day is inert decoration. */
-export default function OptionalHolidayCalendar({ picked, selected, onSelect }: OptionalHolidayCalendarProps) {
+/** Month grid for the Optional Holiday leave type: only the configured
+ * optional holidays (today onward — past holidays are locked out) are
+ * highlighted and clickable; every other day is inert decoration. */
+export default function OptionalHolidayCalendar({ options, selected, onSelect }: OptionalHolidayCalendarProps) {
+  const today = todayISO()
   // Anchor the month view on the selection (or today) so the picker opens in
   // the month that matters; own state otherwise, arrows navigate freely.
   const anchor = selected ?? ''
   const [viewYear, setViewYear] = useState<number | null>(null)
   const [viewMonth, setViewMonth] = useState<number | null>(null)
-  const year = viewYear ?? (anchor ? Number(anchor.slice(0, 4)) : new Date().getFullYear())
-  const month = viewMonth ?? (anchor ? Number(anchor.slice(5, 7)) - 1 : new Date().getMonth())
+  const year = viewYear ?? (anchor ? Number(anchor.slice(0, 4)) : Number(today.slice(0, 4)))
+  const month = viewMonth ?? (anchor ? Number(anchor.slice(5, 7)) - 1 : Number(today.slice(5, 7)) - 1)
 
   const first = new Date(year, month, 1)
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -45,7 +47,7 @@ export default function OptionalHolidayCalendar({ picked, selected, onSelect }: 
   }
 
   return (
-    <div className="opt-calendar" role="group" aria-label="Picked optional holidays">
+    <div className="opt-calendar" role="group" aria-label="Optional holiday picker">
       <div className="opt-calendar__head">
         <button type="button" className="opt-calendar__nav" aria-label="Previous month" onClick={() => step(-1)}>
           <IconChevronDown size={14} />
@@ -62,8 +64,9 @@ export default function OptionalHolidayCalendar({ picked, selected, onSelect }: 
         ))}
         {cells.map((date, i) => {
           if (!date) return <span key={`pad-${i}`} />
-          const name = picked.get(date)
-          const isPicked = Boolean(name)
+          const name = options.get(date)
+          const isPast = date < today
+          const isSelectable = Boolean(name) && !isPast
           const isSelected = date === selected
           return (
             <button
@@ -71,12 +74,12 @@ export default function OptionalHolidayCalendar({ picked, selected, onSelect }: 
               type="button"
               className={[
                 'opt-calendar__day',
-                isPicked ? 'opt-calendar__day--picked' : 'opt-calendar__day--muted',
+                isSelectable ? 'opt-calendar__day--picked' : 'opt-calendar__day--muted',
                 isSelected ? 'opt-calendar__day--selected' : '',
               ].filter(Boolean).join(' ')}
-              disabled={!isPicked}
-              title={name ?? date}
-              aria-label={name ? `${date} — ${name}` : date}
+              disabled={!isSelectable}
+              title={name == null ? date : isPast ? `${name} — this optional holiday has passed` : name}
+              aria-label={name ? `${date} — ${name}${isPast ? ' (past)' : ''}` : date}
               aria-pressed={isSelected || undefined}
               onClick={() => onSelect(date)}
             >
